@@ -75,6 +75,7 @@
   .note { color: var(--muted); font-size: 13px; font-style: italic; }
   .typing span { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
   .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
+  .typing .status { margin-left: 6px; color: var(--muted); font-size: 13px; }
   @keyframes blink { 0%, 80%, 100% { opacity: .2 } 40% { opacity: 1 } }
   form { border-top: 1px solid var(--line); padding: 12px clamp(16px, 5vw, 64px); background: var(--bg); }
   .attach-preview { max-width: 820px; margin: 0 auto 8px; display: none; align-items: center; gap: 10px; }
@@ -307,9 +308,10 @@ async function send(text) {
 
     // The server streams one JSON event per line: text pieces, calculator results, then done.
     const reader = res.body.getReader(); const dec = new TextDecoder();
-    let buf = '', extra = '', lastPaint = 0, streamError = null;
+    let buf = '', extra = '', lastPaint = 0, streamError = null, thinking = false;
     const handle = (evt) => {
       if (evt.type === 'text') reply += evt.text;
+      else if (evt.type === 'thinking') thinking = true;
       else if (evt.type === 'tool') calcs.push({ name: evt.name, args: evt.args, result: evt.result });
       else if (evt.type === 'truncated') extra = '<p class="note">(Answer was cut short. Type "continue" for the rest.)</p>';
       else if (evt.type === 'error') streamError = evt.message;
@@ -323,7 +325,10 @@ async function send(text) {
         const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
         if (line.trim()) { try { handle(JSON.parse(line)); } catch { /* ignore a malformed line */ } }
       }
-      if (performance.now() - lastPaint > 60) { paint(bubble, reply, true, '', calcs); lastPaint = performance.now(); }
+      if (performance.now() - lastPaint > 60) {
+        paint(bubble, reply, true, '', calcs, thinking && !reply ? 'Thinking it through…' : '');
+        lastPaint = performance.now();
+      }
     }
     if (streamError) extra += `<p class="error">⚠ ${esc(streamError)}</p>`;
     if (!reply.trim()) throw new Error(streamError || 'Empty reply from the model. Please try again.');
@@ -361,9 +366,10 @@ function calcHtml(calcs) {
   return `<details class="calcs" open><summary>🧮 ${calcs.length} calculation${calcs.length > 1 ? 's' : ''} verified with the calculator</summary><ul>${rows}</ul></details>`;
 }
 
-function paint(bubble, text, streaming, extra = '', calcs = []) {
+function paint(bubble, text, streaming, extra = '', calcs = [], status = '') {
   const nearBottom = $('chat').scrollHeight - $('chat').scrollTop - $('chat').clientHeight < 120;
-  bubble.innerHTML = calcHtml(calcs) + (text ? md(text) : (streaming ? '<div class="typing"><span></span><span></span><span></span></div>' : '')) + extra + (streaming ? '' : tools());
+  const waiting = `<div class="typing"><span></span><span></span><span></span>${status ? `<em class="status">${esc(status)}</em>` : ''}</div>`;
+  bubble.innerHTML = calcHtml(calcs) + (text ? md(text) : (streaming ? waiting : '')) + extra + (streaming ? '' : tools());
   if (!streaming) bindTools(bubble, text);
   if (nearBottom) scrollDown();
 }

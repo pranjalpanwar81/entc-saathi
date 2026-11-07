@@ -14,6 +14,10 @@ const API_KEY = process.env.BHARATCODE_API_KEY || '';
 const BASE_URL = (process.env.BHARATCODE_BASE_URL || 'https://bharatcode.ai/api/model/v1').replace(/\/$/, '');
 const MODEL = process.env.BHARATCODE_MODEL || 'qwen-3.8-27b';
 const DEMO = process.env.DEMO_MODE === '1';
+// Optional: 'none' | 'low' | 'medium' | 'high'. Lower = faster answers. Unset = model default.
+const REASONING_EFFORT = process.env.BHARATCODE_REASONING_EFFORT || '';
+const FIRST_BYTE_TIMEOUT_MS = 90_000;  // give up if BharatCode doesn't respond at all
+const IDLE_TIMEOUT_MS = 120_000;       // give up if the stream goes silent
 const MAX_IMAGE_CHARS = 4_000_000; // ~3 MB image as a data URL
 
 function loadDotEnv(file) {
@@ -144,18 +148,32 @@ async function runConversation(messages, emit) {
 async function callModel(messages, allowTools, emit) {
   const payload = { model: MODEL, messages, max_tokens: 6000, temperature: 0.3, stream: true };
   if (allowTools) Object.assign(payload, { tools: TOOL_DEFS, tool_choice: 'auto' });
+  if (REASONING_EFFORT) payload.reasoning_effort = REASONING_EFFORT;
   const body = JSON.stringify(payload);
 
+  const started = Date.now();
+  const controller = new AbortController();
+  let timer = setTimeout(() => controller.abort(new Error('first-byte timeout')), FIRST_BYTE_TIMEOUT_MS);
+  const resetIdle = () => { clearTimeout(timer); timer = setTimeout(() => controller.abort(new Error('idle timeout')), IDLE_TIMEOUT_MS); };
+
   let res;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    res = await fetch(`${BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-      body,
-    });
-    if (res.status === 503 && attempt < 2) { await sleep(3000 * (attempt + 1)); continue; } // model busy
-    break;
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      res = await fetch(`${BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+        body,
+        signal: controller.signal,
+      });
+      if (res.status === 503 && attempt < 2) { await sleep(3000 * (attempt + 1)); continue; } // model busy
+      break;
+    }
+  } catch (e) {
+    clearTimeout(timer);
+    throw httpError(504, 'BharatCode did not respond in time. The model may be busy; please try again.');
   }
+  resetIdle();
+  console.log(`[api] ${res.status} ${res.headers.get('content-type')} in ${Date.now() - started} ms, tools=${allowTools}, x-request-id=${res.headers.get('x-request-id')}`);
   if (!res.ok) {
     const raw = await res.text();
     let msg; try { msg = JSON.parse(raw)?.error?.message; } catch { /* not json */ }
@@ -165,12 +183,14 @@ async function callModel(messages, allowTools, emit) {
       : res.status === 503 ? 'The BharatCode model is busy right now. Please try again in a few seconds.'
       : `BharatCode API error ${res.status}: ${msg}`);
     err.requestId = res.headers.get('x-request-id');
+    clearTimeout(timer);
     throw err;
   }
 
   // Some servers ignore stream:true and send plain JSON; handle both.
   if (!(res.headers.get('content-type') || '').includes('text/event-stream')) {
     const data = await res.json();
+    clearTimeout(timer);
     const choice = data?.choices?.[0] || {};
     const text = choice.message?.content || '';
     if (text) emit({ type: 'text', text });
@@ -182,7 +202,10 @@ async function callModel(messages, allowTools, emit) {
   const calls = []; // assembled from streamed fragments, keyed by index
   let buffer = '';
   const decoder = new TextDecoder();
+  let reasoningChars = 0, lastThinking = 0, firstContentMs = null;
+  try {
   outer: for await (const chunk of res.body) {
+    resetIdle();
     buffer += decoder.decode(chunk, { stream: true });
     let nl;
     while ((nl = buffer.indexOf('\n')) >= 0) {
@@ -196,7 +219,15 @@ async function callModel(messages, allowTools, emit) {
       const choice = evt.choices?.[0];
       if (!choice) continue;
       const delta = choice.delta || {};
-      if (delta.content) { text += delta.content; emit({ type: 'text', text: delta.content }); }
+      const reasoning = delta.reasoning_content || delta.reasoning;
+      if (typeof reasoning === 'string' && reasoning) {
+        reasoningChars += reasoning.length;
+        if (Date.now() - lastThinking > 1000) { lastThinking = Date.now(); emit({ type: 'thinking' }); }
+      }
+      if (delta.content) {
+        if (firstContentMs === null) firstContentMs = Date.now() - started;
+        text += delta.content; emit({ type: 'text', text: delta.content });
+      }
       for (const tc of delta.tool_calls || []) {
         const i = tc.index ?? calls.length;
         calls[i] = calls[i] || { id: '', type: 'function', function: { name: '', arguments: '' } };
@@ -207,6 +238,13 @@ async function callModel(messages, allowTools, emit) {
       if (choice.finish_reason) finish = choice.finish_reason;
     }
   }
+  } catch (e) {
+    if (controller.signal.aborted) throw httpError(504, 'The BharatCode stream stopped responding. Please try again.');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+  console.log(`[api] done in ${Date.now() - started} ms: reasoning=${reasoningChars} chars, content=${text.length} chars (first at ${firstContentMs} ms), toolCalls=${calls.filter(Boolean).length}, finish=${finish}`);
   return { text, toolCalls: normaliseCalls(calls.filter(Boolean)), finish };
 }
 
@@ -262,6 +300,7 @@ const server = http.createServer(async (req, res) => {
         }
         res.write(JSON.stringify(evt) + '\n');
       };
+      send({ type: 'start' });
       try {
         const { truncated } = await runConversation(messages, send);
         if (truncated) send({ type: 'truncated' });
