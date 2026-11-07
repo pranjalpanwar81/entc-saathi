@@ -55,6 +55,7 @@
   .imgnote { font-size: 12.5px; color: var(--muted); }
   .bubble h3 { font-size: 16px; margin: 14px 0 6px; color: var(--accent); }
   .bubble p { margin: 6px 0; }
+  .bubble hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
   .bubble ul, .bubble ol { margin: 6px 0; padding-left: 22px; }
   .bubble code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13.5px; }
   .bubble pre { background: var(--panel2); border: 1px solid var(--line); padding: 12px; border-radius: 8px; overflow-x: auto; }
@@ -439,6 +440,7 @@ function md(src) {
       continue;
     }
     closeTable();
+    if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { closeList(); out.push('<hr>'); continue; }
     if ((m = line.match(/^(#{1,4})\s+(.*)/))) { closeList(); out.push(`<h3>${inline(m[2])}</h3>`); }
     else if ((m = line.match(/^\s*[-*•]\s+(.*)/))) { if (list !== 'ul') { closeList(); out.push('<ul>'); list = 'ul'; } out.push(`<li>${inline(m[1])}</li>`); }
     else if ((m = line.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== 'ol') { closeList(); out.push('<ol>'); list = 'ol'; } out.push(`<li>${inline(m[1])}</li>`); }

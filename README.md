@@ -10,9 +10,16 @@ Powered by the **BharatCode model API** · Built for the **BharatCode Build Leag
 
 ---
 
-<p align="center"><img src="docs/quiz-demo.jpg" width="420" alt="ENTC Saathi marking a student's op-amp answer, with the calculator-verified result"></p>
+<p align="center"><img src="docs/demo.gif" width="800" alt="Demo: a photo of a handwritten RC-filter answer is graded by ENTC Saathi; the 10x mistake in fc is caught by the calculator"></p>
 
-*Real run on the BharatCode model: the student dropped a minus sign and got the phase wrong, and ENTC Saathi verified the numbers with its calculator and marked it 2.5 / 4.*
+*Recorded on the live app with the real BharatCode model. The answer sheet has a deliberate 10× slip (fc = 33.9 kHz instead of 3.386 kHz), and ENTC Saathi catches it, gives 3 / 4 with method marks, and suggests a cross-check. The queue wait is sped up in the GIF. (The demo sheet is a generated handwriting-style image.)*
+
+<details><summary>More: quiz mode marking an op-amp answer</summary>
+
+<p align="center"><img src="docs/quiz-demo.jpg" width="420" alt="ENTC Saathi marking a student's op-amp answer"></p>
+
+*The student dropped a minus sign and got the phase wrong. The numbers were verified and the answer marked 2.5 / 4.*
+</details>
 
 ## Why
 
