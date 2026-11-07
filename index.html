@@ -308,10 +308,11 @@ async function send(text) {
 
     // The server streams one JSON event per line: text pieces, calculator results, then done.
     const reader = res.body.getReader(); const dec = new TextDecoder();
-    let buf = '', extra = '', lastPaint = 0, streamError = null, thinking = false;
+    let buf = '', extra = '', lastPaint = 0, streamError = null, thinking = false, queuedFor = 0;
     const handle = (evt) => {
       if (evt.type === 'text') reply += evt.text;
       else if (evt.type === 'thinking') thinking = true;
+      else if (evt.type === 'queued') queuedFor = evt.seconds;
       else if (evt.type === 'tool') calcs.push({ name: evt.name, args: evt.args, result: evt.result });
       else if (evt.type === 'truncated') extra = '<p class="note">(Answer was cut short. Type "continue" for the rest.)</p>';
       else if (evt.type === 'error') streamError = evt.message;
@@ -326,7 +327,9 @@ async function send(text) {
         if (line.trim()) { try { handle(JSON.parse(line)); } catch { /* ignore a malformed line */ } }
       }
       if (performance.now() - lastPaint > 60) {
-        paint(bubble, reply, true, '', calcs, thinking && !reply ? 'Thinking it through…' : '');
+        const status = reply ? '' : thinking ? 'Thinking it through…'
+          : queuedFor ? `BharatCode is busy, waiting in the queue (${queuedFor}s)… your answer will appear here.` : '';
+        paint(bubble, reply, true, '', calcs, status);
         lastPaint = performance.now();
       }
     }

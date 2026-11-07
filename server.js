@@ -209,6 +209,7 @@ async function callModel(messages, allowTools, emit) {
     const piece = decoder.decode(chunk, { stream: true });
     if (++chunkCount <= 3 || chunkCount % 200 === 0) console.log(`[api] chunk ${chunkCount} at ${Date.now() - started} ms: ${JSON.stringify(piece.slice(0, 400))}`);
     buffer += piece;
+    if (piece.includes(': bharatcode queued')) emit({ type: 'queued', seconds: Math.round((Date.now() - started) / 1000) });
     let nl;
     while ((nl = buffer.indexOf('\n')) >= 0) {
       const line = buffer.slice(0, nl).trim();
