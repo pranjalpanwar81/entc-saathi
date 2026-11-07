@@ -1,1 +1,243 @@
-{}
+{
+ "explain|||en||explain an op-amp integrator": [
+  {
+   "type": "text",
+   "text": "\n\n# Op-Amp Integrator\n\n## 1. Intuition\n\nThink of it as a **speedometer that shows distance**: if you feed it a constant speed (DC voltage), the output keeps growing (like distance increasing). The output is the *accumulated area* under the input curve — that's integration.\n\n---\n\n## 2. Core Concept & Key Formulas\n\n**Circuit:** Inverting op-amp with a **resistor Rin** at the input and a **capacitor C** in the feedback path (replacing Rf).\n\n```\n        Rin\nVin o---/\\/\\/\\---o---(−)\n                      |\n                     (op-amp)\n                      |\n        C             (+) o--- GND\n       ---o---o---\n      (feedback)\n                      |\n                    Vout\n```\n\n**Derivation (virtual ground at inverting node):**\n\n- Current through Rin: I = Vin / Rin\n- This same current flows through C (no current into op-amp input)\n- Vout = −(1/C) ∫ I dt = −(1/(Rin·C)) ∫ Vin dt\n\n**Key formulas:**\n\n| Quantity | Expression |\n|---|---|\n| Time-domain output | Vout = −(1/(Rin·C)) ∫ Vin dt |\n| Transfer function | H(s) = −1 / (s·Rin·C) |\n| For sinusoidal input (Vin = Vm sin ωt) | Vout = −(Vm / (ω·Rin·C)) sin ωt = (Vm / (ω·Rin·C)) sin(ωt − 180°) |\n| Output amplitude | Vout(pk) = Vm / (2πf·Rin·C) |\n| Phase shift | Output **lags** input by **90°** (plus the 180° inversion → net 90° lag for a sine) |\n\n**Practical issue:** At DC (f → 0), gain → ∞, so the op-amp saturates. A large resistor **Rf** is placed **in parallel with C** to limit DC gain to −Rf/Rin.\n\n---\n\n## 3. Solved Numerical (Exam Style)\n\n**Q:** An integrator has Rin = 10 kΩ and C = 0.1 µF. The input is a sine wave of 1 V (peak) at 1 kHz. Find the output amplitude and phase.\n\n**Solution:**\n\n- ω = 2πf = 2π × 1000 = 6283 rad/s\n- Output amplitude:\n\nVout(pk) = Vm / (ω · Rin · C)\n\n= 1 / (6283 × 10000 × 0.1 × 10⁻⁶)\n\n= 1 / 6.283"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "2*pi*1000*10k*0.1u"
+   },
+   "result": {
+    "result": 6.283185307179585,
+    "formatted": "6.283"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\n= 159.2 mV"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "1/(2*pi*1000*10k*0.1u)",
+    "unit": "V"
+   },
+   "result": {
+    "result": 0.15915494309189537,
+    "formatted": "159.2 mV"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\n**Phase:** The integrator introduces a −90° phase shift (output lags input by 90°).\n\n> **Answer:** Vout ≈ 0.159 V peak, lagging the input by 90°.\n\n---\n\n## 4. Common Mistakes\n\n- **Forgetting the negative sign** — it's an inverting configuration, so the output is the *negative* integral.\n- **Confusing the phase:** The 180° inversion + 90° integration = output is 90° *behind* the input (not ahead).\n- **Ignoring DC saturation** in practical circuits — always mention the parallel Rf when asked about a \"practical integrator.\"\n\n---\n\n## 5. Likely Exam Questions\n\n1. Draw the circuit of an op-amp integrator and derive its output expression. (6 marks)\n2. A square wave of ±5 V, 1 kHz is applied to an integrator with Rin = 10 kΩ, C = 0.1 µF. Sketch the output waveform and find its peak-to-peak value.\n3. Why is a resistor connected in parallel with the feedback capacitor in a practical integrator? What is the DC gain then?\n\n---\n\nWant me to give you a quick quiz on this topic?"
+  }
+ ],
+ "explain|||en||explain the sampling theorem": [
+  {
+   "type": "text",
+   "text": "\n\n# Sampling Theorem (Nyquist–Shannon)\n\n## 1. Intuition\n\nThink of it like **taking snapshots of a spinning fan blade**. If you flash the light too slowly, the blade appears to spin backwards or stand still (aliasing). Flash it fast enough, and you can perfectly reconstruct every position it was in. The \"fast enough\" is the Nyquist rate.\n\n---\n\n## 2. Core Concept & Key Formulas\n\n**Statement:** A band-limited signal x(t) with maximum frequency **f_max** can be **perfectly reconstructed** from its samples if:\n\n> **f_s ≥ 2 · f_max**\n\n| Term | Meaning |\n|---|---|\n| **f_s** | Sampling frequency (Hz) |\n| **f_max** | Highest frequency present in x(t) |\n| **f_N = 2 f_max** | **Nyquist rate** (minimum sampling frequency) |\n| **T_s = 1/f_s** | Sampling period |\n| **f_max** | **Nyquist frequency** (half the sampling rate) |\n\n**What happens if f_s < 2 f_max?**\n- Higher-frequency components \"fold back\" into the baseband → **aliasing** (irreversible distortion).\n- The aliased frequency: f_alias = |f_s − f| (for f > f_s/2)\n\n**Perfect reconstruction (sinc interpolation):**\n\nx(t) = Σ  x(n·T_s) · sinc( (t − n·T_s) / T_s )\n\nwhere sinc(u) = sin(πu) / (πu)\n\n**In the frequency domain:** sampling creates replicas of X(f) centred at multiples of f_s. No overlap (no aliasing) only when f_s ≥ 2 f_max.\n\n---\n\n## 3. Solved Numerical (Exam Style)\n\n**Q:** A signal x(t) = 3 cos(2π·1000 t) + 5 sin(2π·3000 t) + 2 cos(2π·5000 t) is to be sampled.\n\n**(a)** Find the minimum sampling rate to avoid aliasing.\n**(b)** If it is actually sampled at f_s = 8 kHz, find the aliased frequency of the 5 kHz component.\n\n**Solution:**\n\n**(a)** Identify all frequency components: 1 kHz, 3 kHz, 5 kHz.\n\nf_max = 5 kHz\n\nNyquist rate:\nf_N = 2 × f_max = 10 kHz"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "2*5k",
+    "unit": "Hz"
+   },
+   "result": {
+    "result": 10000,
+    "formatted": "10 kHz"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\nSo the minimum sampling rate is **10 kHz**.\n\n**(b)** Given f_s = 8 kHz. The 5 kHz component exceeds f_s/2 = 4 kHz, so it aliases.\n\nf_alias = |f_s − f| = 3 kHz"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "8k - 5k",
+    "unit": "Hz"
+   },
+   "result": {
+    "result": 3000,
+    "formatted": "3 kHz"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\nThe 5 kHz component appears as a **3 kHz** component in the sampled signal — indistinguishable from the real 3 kHz sine term. This is why aliasing is dangerous.\n\n---\n\n## 4. Common Mistakes\n\n- **Confusing Nyquist rate with Nyquist frequency.** Nyquist *rate* = 2 f_max (a sampling frequency). Nyquist *frequency* = f_max (a signal frequency). Examiners love to test this.\n- **Forgetting that \"band-limited\" is a prerequisite.** The theorem only applies if the signal truly has no energy above f_max. Real signals are never perfectly band-limited, so in practice we use f_s slightly above 2 f_max (e.g., 44.1 kHz for audio up to 20 kHz).\n- **Assuming f_s = 2 f_max is always safe.** At exactly the Nyquist rate, a sinusoid at f_max can be missed entirely if samples fall at its zero crossings. In practice, use f_s > 2 f_max.\n\n---\n\n## 5. Likely Exam Questions\n\n1. *State and prove the sampling theorem using the frequency-domain (spectrum replication) approach.* (8–10 marks)\n2. *A signal contains components at 1 kHz, 4 kHz and 7 kHz. It is sampled at 10 kHz. List all frequencies present in the sampled signal and identify any aliases.* (5 marks)\n3. *Define Nyquist rate and Nyquist frequency. A 4 kHz audio signal is sampled at 8 kHz. Can it be perfectly reconstructed? Justify.* (3 marks)\n\n---\n\nWant me to give you a **quick quiz** (3–4 MCQs + 1 numerical) on the sampling theorem to test your understanding?"
+  }
+ ],
+ "explain|||en||how does a pll work?": [
+  {
+   "type": "text",
+   "text": "# How a PLL (Phase-Locked Loop) Works\n\n## 1. One-line intuition\n\nA PLL is like a **self-correcting thermostat for frequency**: it constantly compares \"what frequency I have\" with \"what frequency I want\", and adjusts a voltage until the two match — except here it locks **phase**, not temperature.\n\n---\n\n## 2. Core concept\n\n### Basic block diagram (feedback system)\n\n```\n        ┌──────────────┐   Verror   ┌─────────┐   Vcontrol   ┌─────┐\n ref ──►│  PHASE       ├───────────►│  LOOP   ├─────────────►│ VCO ├───► fout\n fin    │  DETECTOR    │            │  FILTER │              │     │\n        │  (PD)        │            │  (LPF)  │              └──┬──┘\n        └──────▲───────┘            └─────────┘                 │\n               │                                                │\n               └────────────────────────────────────────────────┘\n                              feedback (sometimes ÷N)\n```\n\n**Three blocks:**\n\n- **Phase Detector (PD)** — compares the phase of the reference input `φin` with the VCO feedback phase `φout`. Output is an error proportional to phase difference:\n `verror = Kd * (φin − φout)` where **Kd** = PD gain in V/rad\n- **Loop Filter (LPF)** — a low-pass (usually active PI) filter that removes high-frequency/idle components and sets the **loop dynamics** (bandwidth, settling time).\n- **VCO (Voltage-Controlled Oscillator)** — output frequency is linearly controlled by voltage:\n `fout = f0 + Kvco * Vcontrol` where **f0** = free-running frequency, **Kvco** in Hz/V\n\n### What happens in lock (steady state)\n\n- Phase error becomes **constant** → PD output is constant → VCO control voltage is constant → VCO sits at exactly the required frequency.\n- **Key lock condition:** `fout = fin` (or `fout = N * fin` if a **÷N divider** is in the feedback path).\n- A *static phase error* still exists in a basic (Type-I) loop — that error is what generates the DC control voltage. So \"locked\" ≠ \"zero phase error\".\n\n### Important ranges\n\n- **Lock range (tracking range):** the range of input frequencies the PLL can *stay* locked to once locked. Usually the larger of the two.\n- **Capture range:** the range of input frequencies over which the PLL can *acquire* lock from an unlocked state. Always **smaller than or equal to** the lock range; it is set mainly by the loop-filter bandwidth.\n\n### Applications (very exam-relevant)\n\n- Frequency **synthesizers** (`fout = N * fin`)\n- **FSK / FM demodulation** (the control voltage *is* the demodulated signal)\n- **Clock recovery** in digital receivers\n- AM suppression, tone decoding, frequency shifting\n\n---\n\n## 3. Solved numerical (exam style)\n\n**Q.** A PLL uses a VCO with free-running frequency `f0 = 500 kHz` and gain `Kvco = 10 kHz/V`. The reference input is `fin = 505 kHz`. The loop filter is an RC low-pass with `R = 16 kΩ`, `C = 0.1 µF`.\n(a) Find the control voltage needed for lock. (b) Find the loop-filter cut-off frequency.\n\n**Step 1 — Formula (VCO equation):**\n`fout = f0 + Kvco * Vcontrol`, and in lock `fout = fin`.\nTherefore `Vcontrol = (fin − f0) / Kvco`\n\n**Step 2 — Substitute:**\n`Vcontrol = (505 kHz − 500 kHz) / 10 kHz/V = 5 kHz / 10 kHz/V`\n\n(a) Vcontrol = 500 mV"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "(505k - 500k)/10k",
+    "unit": "V"
+   },
+   "result": {
+    "result": 0.5,
+    "formatted": "500 mV"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\n**Step 3 — Filter cut-off:**\n`fc = 1 / (2*pi*R*C)`\n\n(b) fc = 99.47 Hz"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "1/(2*pi*16k*0.1u)",
+    "unit": "Hz"
+   },
+   "result": {
+    "result": 99.4718394324346,
+    "formatted": "99.47 Hz"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\n> This small DC voltage (≈ 0.5 V) is exactly what holds the VCO at 505 kHz — that is the \"lock\" in a phase-locked loop.\n\n---\n\n## 4. Common mistakes\n\n- **Mixing up lock range and capture range.** Capture ≤ lock. Capture range is governed by the loop filter; widening the filter increases capture range but admits more noise.\n- **Wrong units for Kvco.** Datasheets often give **MHz/V** or **rad/s/V** — convert carefully before using `Δf = Kvco × V`. Never invent a datasheet value: **check the datasheet**.\n- **Forgetting the divider.** With a `÷N` block in the feedback path, `fout = N * fin`, not `fout = fin`. Writing `fout = fin` in a synthesizer question loses marks.\n- **Saying \"phase error is zero in lock.\"** In a basic type-I loop a finite static phase error is *required* to produce the DC control voltage.\n\n---\n\n## 5. Likely exam questions\n\n1. **Draw the block diagram of a PLL** and explain its operation. State the condition for lock and define *lock range* and *capture range*.\n2. A VCO has `Kvco = 20 kHz/V` and `f0 = 1.7 MHz`. What control voltage is needed to lock it to **1.76 MHz**? *(Try it yourself.)*\n3. **Explain how a PLL demodulates an FM signal.** Why does the output of the loop filter give back the original modulating signal?\n4. In a frequency synthesizer with `fin = 100 kHz` and required `fout = 15.4 MHz`, what value of N is needed?\n\n---\n\nWould you like a **short quiz** on PLLs (lock range vs capture range, synthesizer arithmetic, FM demod) — or should we go deeper into the **loop filter / PLL dynamics** side?"
+  }
+ ],
+ "quiz|||en||quiz me on rc circuits": [
+  {
+   "type": "text",
+   "text": "**RC Circuits — Quiz 1/…**\n\nA series RC circuit has **R = 10 kΩ** and **C = 100 µF**. The capacitor is initially uncharged and is suddenly connected to a **10 V** DC supply.\n\nCalculate:\n\n**(a)** the time constant τ of the circuit [1 mark]\n**(b)** the capacitor voltage at t = 1 s [2 marks]\n**(c)** the initial charging current at t = 0⁺ [1 mark]\n\n**[Total 4 marks]**\n\nType out your working (or send a photo of it) — I'll give you step marks. Take your time."
+  }
+ ],
+ "explain|||en||why is a bjt biased with a voltage divider?": [
+  {
+   "type": "text",
+   "text": "\n\n# Voltage-Divider Bias for a BJT\n\n## 1. One-Line Intuition\n\nThink of it like a **dimmer switch that ignores the load**: the voltage divider \"locks\" the base voltage at a fixed value, so even if you swap in a transistor with a different β, the operating point barely moves.\n\n---\n\n## 2. Core Concept\n\n### Why not just use a single base resistor (fixed bias)?\n\nIn fixed bias, IB = (VCC − VBE) / RB. Since IC = β·IB, **any change in β directly changes IC**. Transistors of the same type can have β ranging from, say, 80 to 300 — your Q-point would drift wildly.\n\n### What the voltage divider does\n\n| Element | Role |\n|---------|------|\n| **R1, R2** (divider) | Set VB to a fixed value independent of β |\n| **RE** (emitter resistor) | Provides **negative feedback**: if IC rises → VE rises → VBE falls → IC falls back |\n| **Bypass capacitor CE** (across RE) | Removes RE from the AC signal path so gain isn't reduced |\n\n### Key formulas (DC analysis)\n\n- **VB** = VCC × R2 / (R1 + R2)\n- **VE** = VB − VBE  (VBE ≈ 0.7 V for Si)\n- **IE** = VE / RE\n- **IC ≈ IE** (since α ≈ 1)\n- **VCE** = VCC − IC·RC − IE·RE\n\n### \"Stiff\" divider rule (design guideline)\n\n> The divider current I_div = VCC/(R1+R2) should be **≥ 10 × IB** so that the base current doesn't noticeably load the divider. This is what makes VB truly β-independent.\n\n---\n\n## 3. Solved Numerical (Exam Style)\n\n**Given:** VCC = 12 V, R1 = 47 kΩ, R2 = 15 kΩ, RC = 2.2 kΩ, RE = 1 kΩ, β = 100, VBE = 0.7 V.\n**Find:** IC and VCE.\n\n**Step 1 – Base voltage:**\n\nVB = VCC × R2 / (R1 + R2) = 12 × 15k / (47k + 15k) = 2.903 V"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "12*15k/(47k+15k)",
+    "unit": "V"
+   },
+   "result": {
+    "result": 2.903225806451613,
+    "formatted": "2.903 V"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\n**Step 2 – Emitter voltage:**\n\nVE = VB − VBE = 2.203 V"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "12*15k/(47k+15k) - 0.7",
+    "unit": "V"
+   },
+   "result": {
+    "result": 2.203225806451613,
+    "formatted": "2.203 V"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\n**Step 3 – Emitter (≈ collector) current:**\n\nIE = VE / RE = 2.203 mA"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "(12*15k/(47k+15k) - 0.7)/1k",
+    "unit": "A"
+   },
+   "result": {
+    "result": 0.002203225806451613,
+    "formatted": "2.203 mA"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\nIC ≈ IE = 2.203 mA"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "(12*15k/(47k+15k) - 0.7)/1k",
+    "unit": "A"
+   },
+   "result": {
+    "result": 0.002203225806451613,
+    "formatted": "2.203 mA"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\n**Step 4 – Collector-emitter voltage:**\n\nVCE = VCC − IC·RC − IE·RE = 12 − IC(2.2k) − IC(1k)\n\nVCE = 4.95 V"
+  },
+  {
+   "type": "tool",
+   "name": "calculate",
+   "args": {
+    "expression": "12 - (12*15k/(47k+15k)-0.7)/1k*(2.2k+1k)",
+    "unit": "V"
+   },
+   "result": {
+    "result": 4.949677419354838,
+    "formatted": "4.95 V"
+   }
+  },
+  {
+   "type": "text",
+   "text": "\n\n**Q-point:** IC ≈ 2.2 mA, VCE ≈ 5.0 V → transistor is in the **active region** ✓\n\n---\n\n## 4. Common Mistakes\n\n- **Forgetting VBE drop.** Writing VE = VB instead of VE = VB − 0.7 V. This overestimates IC by ~30 %.\n- **Ignoring the divider loading.** If R1 and R2 are too large (e.g., 1 MΩ), the base current pulls VB down and the \"simple\" formula VB = VCC·R2/(R1+R2) is no longer valid. Always check the 10× rule.\n- **Using AC analysis for DC Q-point.** The bypass capacitor CE is an open circuit for DC; RE is fully in the loop.\n\n---\n\n## 5. Likely Exam Questions\n\n1. \"Draw the voltage-divider bias circuit and derive an expression for IC in terms of VCC, R1, R2, RE, and VBE (assume β is large).\"\n2. \"A transistor with β = 100 is replaced by one with β = 200 in a voltage-divider bias circuit. Explain why IC changes very little.\"\n3. \"What is the purpose of the emitter bypass capacitor CE? What happens to the voltage gain if it is removed?\"\n\n---\n\nWant me to give you a **quick quiz** (3–4 MCQs / short answers) on this topic to test your understanding?"
+  }
+ ],
+ "quiz|||en||quiz me on laplace transforms": [
+  {
+   "type": "text",
+   "text": "**ENTC Laplace Transform Quiz — Question 1**\n\n**(Numerical) [4 marks]**\n\nDetermine the unilateral Laplace transform of:\n\nf(t) = t · e^(−4t), for t ≥ 0\n\nShow the transform pair / property you are using, then the final expression in s.\n\n&nbsp;\n\nTake your time — type your working (or send a photo of your hand-written solution), and I'll mark it out of 4 before moving to the next question."
+  }
+ ],
+ "quiz|||en||quiz me on 8051 timers": [
+  {
+   "type": "text",
+   "text": "\n\n## 8051 Timers – Quiz\n\n**Question 1** [4 marks]\n\nTimer 0 is configured in **Mode 1** (16-bit) with a **12 MHz** crystal oscillator. The initial value loaded into TH0:TL0 is **0xD000**.\n\nCalculate the **time delay** from the moment the timer is started until it overflows.\n\n---\n\n*Show your working: state the machine cycle time, the number of counts remaining, and the final delay.*\n\nTake your time and reply with your answer."
+  }
+ ],
+ "viva|||en||take my viva on the full-wave rectifier experiment": [
+  {
+   "type": "text",
+   "text": "\n\n**Viva: Full-Wave Rectifier**\n\nAlright, let's begin.\n\n**Question 1:**\n\nIn a centre-tapped full-wave rectifier, what is the role of the centre tap on the transformer secondary, and why is it necessary?"
+  }
+ ],
+ "quiz|||en||quiz me on am modulation": [
+  {
+   "type": "text",
+   "text": "Hello! I'm **ENTC Saathi**, your tutor for this session. Let's do a quiz on **Amplitude Modulation (AM)** — one question at a time.\n\n---\n\n### Question 1 — Numerical [4 marks]\n\nA carrier is amplitude-modulated by a single-tone message signal. Given:\n\n- **Carrier amplitude:** Ac = 50 V\n- **Load resistance:** R = 50 Ω\n- **Modulation index:** μ = 0.6\n\nCalculate the following:\n\n**(a)** Carrier power Pc delivered to the load\n**(b)** Total transmitted (average) power Pt\n**(c)** Power in each sideband\n\n*Show the formulas you are using. One answer per line with units.*\n\nTake your time — reply with your working (typed or a photo), and I'll mark it out of 4."
+  }
+ ],
+ "viva|||en||viva on bjt ce amplifier frequency response": [
+  {
+   "type": "text",
+   "text": "**VIVA PRACTICE — BJT Common-Emitter Amplifier Frequency Response**\n\nI'll be your external examiner. I'll ask one short conceptual question at a time. Answer in your own words — I'll give brief feedback, then go deeper.\n\n---\n\n**Question 1 of 6:**\n\nIn the frequency response plot of a CE amplifier (gain in dB vs log frequency), the gain is constant over a mid-band range. *What causes the gain to fall off at low frequencies?*\n\nTake your time."
+  }
+ ],
+ "viva|||en||viva on the 555 timer astable multivibrator": [
+  {
+   "type": "text",
+   "text": "**ENTC Saathi – Viva Practice: 555 Timer Astable Multivibrator**\n\nWelcome. I'll be your external examiner today. I'll ask one question at a time, give brief feedback after each answer, and then move deeper. At the end you'll get a score out of 10 with the topics to revise.\n\nTake your time, and answer in your own words — like you would in front of a panel.\n\n---\n\n**Question 1 of 6:**\n\nIn a 555 timer connected as an **astable multivibrator**, which two pins of the IC are used to *charge and discharge* the external timing capacitor?\n\nGo ahead."
+  }
+ ]
+}

@@ -91,7 +91,14 @@ Student access allows 10M tokens a day, and one spammer could exhaust it while j
 
 Blocked requests get `429` (or `503` for the global cap) with a `Retry-After` header and a friendly message. The limiter is in-memory, which is right for a single instance; several instances would need Redis.
 
-### 3.7 Security
+### 3.7 Making the first two minutes count
+
+Most people (judges included) give a new app a minute or two. Two things stood in the way:
+
+* **Nobody has an ENTC answer sheet at hand.** *Try a sample answer sheet* draws one in the browser (handwriting-style font on ruled paper) with a realistic mistake: a 10× power-of-ten slip, using the inverting formula for a non-inverting amplifier, or the wrong duty-cycle formula for a 555. Photo grading can then be tried in one click. The sheets are drawn on the device, so there are no image assets.
+* **The first answer can sit in the shared queue.** `cache.js` answers *identical first questions* (same mode, settings and text, no photo, no earlier conversation) instantly. It is seeded with real answers collected from the live model for the 11 starter questions (`answers-cache.json`, which survives restarts on free hosting) plus an in-memory LRU (300 entries, 12 h TTL). Cached replies are labelled *"⚡ Instant answer: saved from an earlier identical question"* with a **Get a live answer** button, so nothing is passed off as live. Cache hits cost no tokens and skip the rate limiter. Follow-ups, photos and any new wording always go to the model.
+
+### 3.8 Security
 
 * No secrets in the repo. The key lives in the host's environment variables, and `.env` is git-ignored.
 * Model output is rendered through a small Markdown renderer that **escapes HTML first**, so a reply containing `<img onerror=…>` shows as text. This is covered by a browser test.
@@ -105,12 +112,13 @@ Blocked requests get `429` (or `503` for the global cap) with a `Retry-After` he
 * **Formula tools:** RC, RLC (f₀, Q, BW), op-amp, divider, parallel resistors, 555 timer, dB.
 * **Inline tags:** tags split across stream chunks, ✅/❌ checks including sign errors, and malformed tags left harmless.
 * **Rate limiting:** sliding window, concurrency, global cap, and a real HTTP server returning `429`.
+* **Answer cache:** which questions are cacheable, key normalisation, expiry, seed loading, and a real HTTP server replaying an identical answer.
 
 During development the app was also tested end to end against a mock BharatCode server (tool-call fragments, queue heartbeats, 503 retries) and against the live API.
 
 ## 5. Limitations and next steps
 
-* **Queue latency** depends on BharatCode's load. Next step: cache answers to common "Explain" questions.
+* **Queue latency** depends on BharatCode's load. Starter questions are instant (cached). Next: semantic matching so near-identical questions also hit the cache.
 * **Handwriting recognition** is only as good as the model's vision. Very messy or dark photos may need retaking.
 * **No accounts yet.** Progress lives in the browser. Next: track weak topics across sessions and suggest revision.
 * **Content:** add previous-year question papers per university for Quiz mode.

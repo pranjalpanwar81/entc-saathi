@@ -34,6 +34,8 @@ ENTC Saathi is built for how ENTC students actually study.
 | | Feature | What it does |
 |---|---|---|
 | 🧮 | **Exact numericals** | Language models are bad at arithmetic. ENTC Saathi never lets the model guess a number: every value is computed by a real calculator, a student's numbers are checked automatically (✅/❌ with the correct value), and every verified calculation is shown. |
+| 📄 | **Try it in one click** | No notes handy? *Try a sample answer sheet* loads a handwritten-style sheet with a typical student mistake (10× slip, wrong op-amp formula or wrong 555 duty cycle) and grades it. |
+| ⚡ | **Instant starter answers** | Common first questions are answered instantly from saved real model answers (clearly labelled). *Get a live answer* asks the model fresh. |
 | 📷 | **Photo grading** | Snap or paste a photo of your handwritten working. You get a score, line-by-line ✅/❌ marking, the corrected solution and a tip. |
 | 📘 | **Explain** | Intuition → key formulas → a solved exam-style numerical → common mistakes → likely exam questions |
 | 📝 | **Quiz me** | One question at a time with marks. It grades your answer (typed or photographed) and the difficulty adapts to you. |
@@ -94,7 +96,9 @@ The repo includes `render.yaml`. On [Render](https://render.com), choose **New �
 |---|---|
 | `server.js` | HTTP server, tutor prompts, streaming BharatCode API call with the tool loop |
 | `tools.js` | Safe expression evaluator, inline `[[calc]]`/`[[check]]` tags and the function-calling tools |
-| `test/` | 18 tests: calculator, tools, inline tags, rate limiting (`npm test`, runs on every push) |
+| `test/` | 24 tests: calculator, tools, inline tags, rate limiting, answer cache (`npm test`, runs on every push) |
+| `cache.js` | Instant replies for identical first questions (seeded + in-memory LRU) |
+| `answers-cache.json` | Saved real model answers for the starter questions |
 | `rateLimit.js` | Per-user, concurrency and global rate limits for the public demo |
 | `DESIGN.md` | Architecture and measured design decisions |
 | `index.html` | The whole web UI (chat, photo upload, modes, Markdown rendering) |
