@@ -53,7 +53,7 @@ Browser (index.html)          Node server (server.js)                 BharatCode
 
 1. Install [Node.js](https://nodejs.org) 18 or newer.
 2. Get your developer API key from https://bharatcode.ai/account (API access needs Lite, Pro or verified student access).
-3. In this folder, create a file named `.env` containing:
+3. In this folder, copy `.env.example` to `.env` and put in your key:
    ```
    BHARATCODE_API_KEY=bc_live_your_key_here
    ```
