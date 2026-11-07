@@ -202,11 +202,13 @@ async function callModel(messages, allowTools, emit) {
   const calls = []; // assembled from streamed fragments, keyed by index
   let buffer = '';
   const decoder = new TextDecoder();
-  let reasoningChars = 0, lastThinking = 0, firstContentMs = null;
+  let reasoningChars = 0, lastThinking = 0, firstContentMs = null, chunkCount = 0, unhandled = 0;
   try {
   outer: for await (const chunk of res.body) {
     resetIdle();
-    buffer += decoder.decode(chunk, { stream: true });
+    const piece = decoder.decode(chunk, { stream: true });
+    if (++chunkCount <= 3 || chunkCount % 200 === 0) console.log(`[api] chunk ${chunkCount} at ${Date.now() - started} ms: ${JSON.stringify(piece.slice(0, 400))}`);
+    buffer += piece;
     let nl;
     while ((nl = buffer.indexOf('\n')) >= 0) {
       const line = buffer.slice(0, nl).trim();
@@ -217,7 +219,7 @@ async function callModel(messages, allowTools, emit) {
       let evt; try { evt = JSON.parse(data); } catch { continue; }
       if (evt.error) throw httpError(502, `BharatCode stream error: ${evt.error.message || 'unknown'}`);
       const choice = evt.choices?.[0];
-      if (!choice) continue;
+      if (!choice) { if (++unhandled <= 3) console.log(`[api] event without choices: ${data.slice(0, 300)}`); continue; }
       const delta = choice.delta || {};
       const reasoning = delta.reasoning_content || delta.reasoning;
       if (typeof reasoning === 'string' && reasoning) {
@@ -244,7 +246,7 @@ async function callModel(messages, allowTools, emit) {
   } finally {
     clearTimeout(timer);
   }
-  console.log(`[api] done in ${Date.now() - started} ms: reasoning=${reasoningChars} chars, content=${text.length} chars (first at ${firstContentMs} ms), toolCalls=${calls.filter(Boolean).length}, finish=${finish}`);
+  console.log(`[api] done in ${Date.now() - started} ms: chunks=${chunkCount}, unhandled=${unhandled}, reasoning=${reasoningChars} chars, content=${text.length} chars (first at ${firstContentMs} ms), toolCalls=${calls.filter(Boolean).length}, finish=${finish}`);
   return { text, toolCalls: normaliseCalls(calls.filter(Boolean)), finish };
 }
 
