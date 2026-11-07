@@ -44,11 +44,36 @@ test('server returns 429 with a friendly message after the limit', async () => {
   const { server } = require('../server');
   await new Promise((r) => server.listen(0, r));
   const url = `http://127.0.0.1:${server.address().port}/api/chat`;
-  const ask = () => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '9.9.9.9' }, body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }) });
-  for (let i = 0; i < 2; i++) { const r = await ask(); assert.strictEqual(r.status, 200); await r.text(); }
-  const blocked = await ask();
-  assert.strictEqual(blocked.status, 429);
-  assert.ok(blocked.headers.get('retry-after'));
-  assert.match((await blocked.json()).error, /limit/);
-  server.close();
+  // noCache: identical questions would otherwise be answered from the cache without reaching the limiter.
+  const ask = () => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '9.9.9.9' }, body: JSON.stringify({ noCache: true, messages: [{ role: 'user', content: 'hi' }] }) });
+  try {
+    for (let i = 0; i < 2; i++) { const r = await ask(); assert.strictEqual(r.status, 200); await r.text(); }
+    const blocked = await ask();
+    assert.strictEqual(blocked.status, 429);
+    assert.ok(blocked.headers.get('retry-after'));
+    assert.match((await blocked.json()).error, /limit/);
+  } finally {
+    server.closeAllConnections?.();
+    server.close();
+  }
+});
+
+test('identical first question is answered from the cache, skipping the model', async () => {
+  process.env.DEMO_MODE = '1';
+  delete require.cache[require.resolve('../server')];
+  const { server } = require('../server');
+  await new Promise((r) => server.listen(0, r));
+  const url = `http://127.0.0.1:${server.address().port}/api/chat`;
+  const ask = () => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '8.8.8.8' }, body: JSON.stringify({ messages: [{ role: 'user', content: 'Explain a PLL' }] }) }).then((r) => r.text());
+  try {
+    const first = await ask();
+    assert.ok(!first.includes('"cached"'));
+    const second = await ask();
+    assert.ok(second.includes('"type":"cached"'), 'second identical question is served from the cache');
+    const text = (s) => s.trim().split('\n').map((l) => JSON.parse(l)).filter((e) => e.type === 'text').map((e) => e.text).join('');
+    assert.strictEqual(text(second), text(first));
+  } finally {
+    server.closeAllConnections?.();
+    server.close();
+  }
 });

@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { TOOL_DEFS, runTool, InlineCalc } = require('./tools');
 const { RateLimiter, clientKey } = require('./rateLimit');
+const { AnswerCache, compactEvents } = require('./cache');
 
 // ---------- config ----------
 loadDotEnv(path.join(__dirname, '.env'));
@@ -33,6 +34,9 @@ const limiter = new RateLimiter({
   globalPerHour: Number(process.env.RATE_LIMIT_GLOBAL_PER_HOUR) || 600,
 });
 setInterval(() => limiter.sweep(), 60_000).unref();
+
+// Instant replies for identical first questions (seeded with real answers; see cache.js).
+const answerCache = new AnswerCache({ seedFile: path.join(__dirname, 'answers-cache.json') });
 
 function loadDotEnv(file) {
   if (!fs.existsSync(file)) return;
@@ -331,6 +335,21 @@ const server = http.createServer(async (req, res) => {
       if (!history.length || history[history.length - 1].role !== 'user') return json(res, 400, { error: 'Send a message first.' });
       const messages = [{ role: 'system', content: systemPrompt(opts) }, ...history];
 
+      // Same first question asked before? Replay the saved answer instantly (no model call, no quota).
+      const cacheKey = input.noCache ? null : AnswerCache.key(opts, history);
+      const cached = answerCache.get(cacheKey);
+      if (cached) {
+        res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-cache' });
+        const out = [{ type: 'start' }, { type: 'cached' }, ...cached, { type: 'done' }];
+        for (const evt of out) {
+          if (evt.type === 'text') {
+            for (let i = 0; i < evt.text.length; i += 400) { res.write(JSON.stringify({ type: 'text', text: evt.text.slice(i, i + 400) }) + '\n'); await sleep(15); }
+          } else res.write(JSON.stringify(evt) + '\n');
+        }
+        console.log('[cache] hit');
+        return res.end();
+      }
+
       // Protect the shared API quota before calling the model.
       const slot = limiter.take(clientKey(req));
       if (!slot.ok) {
@@ -342,7 +361,9 @@ const server = http.createServer(async (req, res) => {
       // Stream newline-delimited JSON events to the browser:
       // {type:'text'|'tool'|'truncated'|'error'|'done', ...}
       let started = false;
+      const recorded = [];
       const send = (evt) => {
+        if (cacheKey && (evt.type === 'text' || evt.type === 'tool')) recorded.push(evt);
         if (!started) {
           started = true;
           res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no' });
@@ -353,6 +374,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const { truncated } = await runConversation(messages, send);
         if (truncated) send({ type: 'truncated' });
+        else if (cacheKey) answerCache.set(cacheKey, compactEvents(recorded));
         send({ type: 'done' });
         return res.end();
       } catch (err) {

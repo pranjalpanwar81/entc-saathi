@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f1115">
 <title>ENTC Saathi: AI exam tutor for ENTC students</title>
 <meta name="description" content="Explain, quiz, viva practice and photo grading of handwritten answers for Electronics & Telecommunication students. Powered by BharatCode.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ff9a3c'/><text x='50' y='66' font-size='46' text-anchor='middle' font-family='Arial' font-weight='bold' fill='%23111'>ES</text></svg>">
@@ -66,6 +67,8 @@
   .tools { margin-top: 6px; display: flex; gap: 8px; }
   .tools button { padding: 3px 10px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
   .tools button:hover { color: var(--text); }
+  .tools { align-items: center; flex-wrap: wrap; }
+  .cached-note { font-size: 12px; color: #6ee7a8; }
   .calcs { margin: 2px 0 10px; border: 1px solid #2d4a3a; background: #13211a; border-radius: 10px; padding: 8px 12px; font-size: 13.5px; }
   .calcs summary { cursor: pointer; color: #6ee7a8; font-weight: 600; }
   .calcs ul { margin: 6px 0 2px; padding-left: 18px; }
@@ -90,6 +93,7 @@
   textarea:focus, select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   button.send { padding: 12px 20px; height: 48px; border-radius: 12px; border: 0; background: var(--accent); color: #111; font-weight: 700; cursor: pointer; }
   button.send:disabled { opacity: .5; cursor: default; }
+  button:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .hint { max-width: 820px; margin: 6px auto 0; font-size: 12px; color: var(--muted); }
   .drop { position: absolute; inset: 0; background: rgba(255,154,60,.12); border: 3px dashed var(--accent); display: none; place-items: center; font-size: 20px; font-weight: 700; z-index: 5; pointer-events: none; }
   .drop.on { display: grid; }
@@ -122,13 +126,13 @@
     <select id="university"></select>
 
     <span class="lbl">Language</span>
-    <div class="seg" id="lang">
+    <div class="seg" id="lang" role="group" aria-label="Language">
       <button type="button" data-lang="en" class="on">English</button>
       <button type="button" data-lang="hinglish">Hinglish</button>
     </div>
 
     <span class="lbl">Mode</span>
-    <div class="modes" id="modes">
+    <div class="modes" id="modes" role="group" aria-label="Mode">
       <button class="mode active" data-mode="explain"><b>📘 Explain</b><span>Concept, formulas, a solved numerical, exam tips</span></button>
       <button class="mode" data-mode="quiz"><b>📝 Quiz me</b><span>Exam questions one by one, marked like a paper</span></button>
       <button class="mode" data-mode="check"><b>✅ Check my answer</b><span>Snap your answer sheet and get step-by-step grading</span></button>
@@ -141,14 +145,14 @@
 
   <main id="main">
     <button class="menu" id="menuBtn">☰ Subject, mode &amp; settings</button>
-    <div id="chat"></div>
+    <div id="chat" role="log" aria-live="polite" aria-label="Conversation with ENTC Saathi"></div>
     <form id="form">
-      <div class="attach-preview" id="preview"><img id="previewImg" alt="Attached photo"><span class="imgnote">Photo attached</span><button type="button" id="removeImg">Remove</button></div>
+      <div class="attach-preview" id="preview"><img id="previewImg" alt="Attached photo"><span class="imgnote">Photo attached</span><button type="button" id="removeImg" aria-label="Remove attached photo">Remove</button></div>
       <div class="composer">
         <button class="cam" type="button" id="camBtn" title="Attach a photo of your answer sheet or circuit" aria-label="Attach photo">📷</button>
         <input id="file" type="file" accept="image/*" hidden>
-        <textarea id="input" rows="1" placeholder="Ask about any ENTC topic…"></textarea>
-        <button class="send" id="send" type="submit">Send</button>
+        <textarea id="input" rows="1" aria-label="Your question or answer" placeholder="Ask about any ENTC topic…"></textarea>
+        <button class="send" id="send" type="submit" aria-label="Send">Send</button>
       </div>
       <div class="hint">Enter to send · Shift+Enter for a new line · 📷 or paste/drop a photo of your handwritten answer</div>
     </form>
@@ -165,9 +169,9 @@ const store = {
 const state = { mode: 'explain', language: 'en', messages: [], busy: false, image: null };
 
 const STARTERS = {
-  explain: ['Explain an op-amp integrator', 'How does a PLL work?', 'Explain the sampling theorem', 'Why is a BJT biased with a voltage divider?'],
+  explain: ['📄 Try photo grading with a sample answer sheet', 'Explain an op-amp integrator', 'How does a PLL work?', 'Explain the sampling theorem', 'Why is a BJT biased with a voltage divider?'],
   quiz: ['Quiz me on RC circuits', 'Quiz me on Laplace transforms', 'Quiz me on 8051 timers', 'Quiz me on AM modulation'],
-  check: ['📷 Grade a photo of my answer', 'Here is my question and my working:\n\nQ: \n\nMy answer: '],
+  check: ['📄 Try a sample answer sheet', '📷 Grade a photo of my answer', 'Here is my question and my working:\n\nQ: \n\nMy answer: '],
   viva: ['Take my viva on the full-wave rectifier experiment', 'Viva on the 555 timer astable multivibrator', 'Viva on BJT CE amplifier frequency response'],
 };
 const PLACEHOLDERS = {
@@ -194,7 +198,7 @@ async function init() {
   state.messages = store.get('messages', []);
   if (state.messages.length) {
     $('chat').innerHTML = '';
-    state.messages.forEach((m) => m.role === 'user' ? addUser(m.content, m.image || null, m.hadImage) : addAssistant(m.content, m.calcs));
+    state.messages.forEach((m) => m.role === 'user' ? addUser(m.content, m.image || null, m.hadImage) : addAssistant(m.content, m.calcs, m.cached));
   } else renderWelcome();
   if (!cfg.ready) addNote('The server has no BharatCode API key yet. Add BHARATCODE_API_KEY to the .env file and restart.');
 }
@@ -214,9 +218,10 @@ function renderWelcome() {
       <div><b>🎤 Viva</b>Mock examiner, score out of 10</div>
       <div><b>🧮 Exact numericals</b>Every number checked by a real calculator</div>
     </div>
-    <div class="chips">${STARTERS[state.mode].map((s) => `<button class="chip${s.startsWith('📷') ? ' hot' : ''}" type="button">${esc(s.split('\n')[0])}</button>`).join('')}</div></div>`;
+    <div class="chips">${STARTERS[state.mode].map((s) => `<button class="chip${/^(📷|📄)/.test(s) ? ' hot' : ''}" type="button">${esc(s.split('\n')[0])}</button>`).join('')}</div></div>`;
   $('chat').querySelectorAll('.chip').forEach((b, i) => b.onclick = () => {
     const text = STARTERS[state.mode][i];
+    if (text.startsWith('📄')) { loadSampleSheet(); return; }
     if (text.startsWith('📷')) { $('file').click(); return; }
     if (text.includes('\n')) { $('input').value = text; $('input').focus(); autoGrow(); } else send(text);
   });
@@ -224,14 +229,14 @@ function renderWelcome() {
 
 function setMode(mode, reset = true) {
   state.mode = mode;
-  document.querySelectorAll('.mode').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+  document.querySelectorAll('.mode').forEach((b) => { b.classList.toggle('active', b.dataset.mode === mode); b.setAttribute('aria-pressed', String(b.dataset.mode === mode)); });
   $('input').placeholder = PLACEHOLDERS[mode];
   if (reset) newSession();
   saveSettings();
 }
 function setLang(lang) {
   state.language = lang;
-  document.querySelectorAll('#lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === lang));
+  document.querySelectorAll('#lang button').forEach((b) => { b.classList.toggle('on', b.dataset.lang === lang); b.setAttribute('aria-pressed', String(b.dataset.lang === lang)); });
 }
 document.querySelectorAll('.mode').forEach((btn) => btn.onclick = () => { setMode(btn.dataset.mode); $('side').classList.remove('open'); });
 document.querySelectorAll('#lang button').forEach((btn) => btn.onclick = () => { setLang(btn.dataset.lang); saveSettings(); });
@@ -276,6 +281,60 @@ async function attachFile(file) {
     $('input').focus();
   } catch { alert('Could not read that image. Try a JPG or PNG.'); }
 }
+// ---------- sample answer sheets ----------
+// So anyone (a judge, a friend without notes) can try photo grading in one click.
+// Each sheet is drawn in a handwriting-style font and contains realistic student mistakes.
+const SAMPLE_SHEETS = [
+  { title: 'RC low-pass filter', lines: [
+    ['Q. An RC low-pass filter has R = 4.7 kΩ and C = 10 nF.', 0],
+    ['     Find (a) cutoff frequency fc  (b) time constant τ   [4]', 0],
+    ['Ans:', 0],
+    ['(a)  fc = 1 / (2πRC)', 1],
+    ['          = 1 / (2 × 3.14 × 4.7×10³ × 10×10⁻⁹)', 1],
+    ['          = 33.9 kHz', 1],
+    ['(b)  τ = RC = 4.7×10³ × 10×10⁻⁹', 1],
+    ['          = 47 μs', 1] ] },
+  { title: 'Non-inverting amplifier', lines: [
+    ['Q. A non-inverting op-amp has Rf = 47 kΩ, R1 = 4.7 kΩ,', 0],
+    ['     Vin = 0.2 V. Find (a) gain Av  (b) Vout   [4]', 0],
+    ['Ans:', 0],
+    ['(a)  Av = − Rf / R1', 1],
+    ['          = − 47k / 4.7k = − 10', 1],
+    ['(b)  Vout = Av × Vin', 1],
+    ['          = − 10 × 0.2 = − 2 V', 1],
+    ['     Output is 180° out of phase.', 1] ] },
+  { title: '555 astable', lines: [
+    ['Q. 555 astable: R1 = 1 kΩ, R2 = 10 kΩ, C = 0.1 μF.', 0],
+    ['     Find tHigh, tLow, f and duty cycle.   [5]', 0],
+    ['Ans:', 0],
+    ['tH = 0.693 (R1 + R2) C = 0.693 × 11k × 0.1μ = 0.762 ms', 1],
+    ['tL = 0.693 R2 C = 0.693 × 10k × 0.1μ = 0.693 ms', 1],
+    ['T = tH + tL = 1.455 ms', 1],
+    ['f = 1 / T = 687 Hz', 1],
+    ['D = tL / T × 100 = 47.6 %', 1] ] },
+];
+let sampleIndex = 0;
+async function loadSampleSheet() {
+  const sheet = SAMPLE_SHEETS[sampleIndex++ % SAMPLE_SHEETS.length];
+  const c = document.createElement('canvas'); c.width = 1100; c.height = 820;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fbfaf3'; g.fillRect(0, 0, c.width, c.height);
+  g.strokeStyle = '#b9d3ee'; g.lineWidth = 2;
+  for (let y = 90; y < c.height; y += 52) { g.beginPath(); g.moveTo(0, y); g.lineTo(c.width, y); g.stroke(); }
+  g.strokeStyle = '#e8a0a0'; g.beginPath(); g.moveTo(90, 0); g.lineTo(90, c.height); g.stroke();
+  const font = '"Segoe Print","Bradley Hand","Comic Sans MS","Chalkboard SE","Comic Neue",cursive';
+  sheet.lines.forEach(([t, ink], i) => {
+    g.fillStyle = ink ? '#1a2a8a' : '#222';
+    g.font = `${i < 2 ? 30 : 33}px ${font}`;
+    g.save(); g.translate(110, 78 + i * 75); g.rotate(i % 2 ? -0.006 : 0.005); g.fillText(t, 0, 0); g.restore();
+  });
+  const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
+  if (state.mode !== 'check') setMode('check');
+  await attachFile(new File([blob], 'sample-answer-sheet.jpg', { type: 'image/jpeg' }));
+  $('input').value = `Please grade my answer (sample sheet: ${sheet.title})`;
+  autoGrow();
+}
+
 function clearImage() { state.image = null; $('preview').classList.remove('on'); $('previewImg').removeAttribute('src'); }
 
 // ---------- chat ----------
@@ -295,15 +354,20 @@ async function send(text) {
   state.messages.push(userMsg);
   addUser(text, image);
   $('input').value = ''; autoGrow(); clearImage();
-  setBusy(true);
+  await requestReply(userMsg);
+}
 
+// Ask the server for a reply to the conversation so far and stream it into a new bubble.
+async function requestReply(userMsg, { noCache = false } = {}) {
+  setBusy(true);
   const bubble = addAssistant(null);
   let reply = '';
   const calcs = [];
+  let cached = false;
   try {
     const res = await fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: state.mode, language: state.language, subject: $('subject').value, university: $('university').value, topic: $('topic').value, messages: state.messages }),
+      body: JSON.stringify({ mode: state.mode, language: state.language, subject: $('subject').value, university: $('university').value, topic: $('topic').value, messages: state.messages, noCache }),
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `Request failed (${res.status})`); }
 
@@ -314,6 +378,7 @@ async function send(text) {
       if (evt.type === 'text') reply += evt.text;
       else if (evt.type === 'thinking') thinking = true;
       else if (evt.type === 'queued') queuedFor = evt.seconds;
+      else if (evt.type === 'cached') cached = true;
       else if (evt.type === 'tool') calcs.push({ name: evt.name, args: evt.args, result: evt.result });
       else if (evt.type === 'truncated') extra = '<p class="note">(Answer was cut short. Type "continue" for the rest.)</p>';
       else if (evt.type === 'error') streamError = evt.message;
@@ -336,8 +401,8 @@ async function send(text) {
     }
     if (streamError) extra += `<p class="error">⚠ ${esc(streamError)}</p>`;
     if (!reply.trim()) throw new Error(streamError || 'Empty reply from the model. Please try again.');
-    state.messages.push({ role: 'assistant', content: reply, calcs });
-    paint(bubble, reply, false, extra, calcs);
+    state.messages.push({ role: 'assistant', content: reply, calcs, cached });
+    paint(bubble, reply, false, extra, calcs, '', cached);
   } catch (err) {
     state.messages.pop();
     if (reply.trim()) { state.messages.push(userMsg); state.messages.push({ role: 'assistant', content: reply, calcs }); }
@@ -346,6 +411,16 @@ async function send(text) {
   persist();
   setBusy(false);
   scrollDown();
+}
+
+// Replace a saved (cached) answer with a fresh live one from the model.
+async function askLive(bubble) {
+  if (state.busy) return;
+  const last = state.messages[state.messages.length - 1];
+  if (!last || last.role !== 'assistant') return;
+  state.messages.pop();
+  bubble.closest('.msg').remove();
+  await requestReply(state.messages[state.messages.length - 1], { noCache: true });
 }
 
 function persist() {
@@ -372,15 +447,19 @@ function calcHtml(calcs) {
   return `<details class="calcs" open><summary>🧮 ${calcs.length} calculation${calcs.length > 1 ? 's' : ''} verified with the calculator</summary><ul>${rows}</ul></details>`;
 }
 
-function paint(bubble, text, streaming, extra = '', calcs = [], status = '') {
+function paint(bubble, text, streaming, extra = '', calcs = [], status = '', cached = false) {
   const nearBottom = $('chat').scrollHeight - $('chat').scrollTop - $('chat').clientHeight < 120;
   const waiting = `<div class="typing"><span></span><span></span><span></span>${status ? `<em class="status">${esc(status)}</em>` : ''}</div>`;
-  bubble.innerHTML = calcHtml(calcs) + (text ? md(text) : (streaming ? waiting : '')) + extra + (streaming ? '' : tools());
+  bubble.innerHTML = calcHtml(calcs) + (text ? md(text) : (streaming ? waiting : '')) + extra + (streaming ? '' : tools(cached));
   if (!streaming) bindTools(bubble, text);
   if (nearBottom) scrollDown();
 }
-const tools = () => '<div class="tools"><button type="button" data-act="copy">Copy</button></div>';
+const tools = (cached) => '<div class="tools"><button type="button" data-act="copy">Copy</button>'
+  + (cached ? '<span class="cached-note">⚡ Instant answer: saved from an earlier identical question to the same model.</span><button type="button" data-act="live">Get a live answer</button>' : '')
+  + '</div>';
 function bindTools(bubble, text) {
+  const live = bubble.querySelector('[data-act=live]');
+  if (live) live.onclick = () => askLive(bubble);
   const b = bubble.querySelector('[data-act=copy]');
   if (b) b.onclick = async () => {
     try { await navigator.clipboard.writeText(text); b.textContent = 'Copied ✓'; } catch { b.textContent = 'Copy failed'; }
@@ -396,11 +475,11 @@ function addUser(text, image, hadImage) {
   const t = document.createElement('div'); t.className = 'text'; t.textContent = text; b.appendChild(t);
   scrollDown();
 }
-function addAssistant(text, calcs) {
+function addAssistant(text, calcs, cached) {
   const el = msgEl('assistant', 'ES');
   const b = el.querySelector('.bubble');
   if (text == null) b.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
-  else { b.innerHTML = calcHtml(calcs) + md(text) + tools(); bindTools(b, text); }
+  else { b.innerHTML = calcHtml(calcs) + md(text) + tools(cached); bindTools(b, text); }
   scrollDown();
   return b;
 }
@@ -412,7 +491,7 @@ function msgEl(role, who) {
   return el;
 }
 function addNote(text) { const p = document.createElement('p'); p.className = 'note'; p.style.textAlign = 'center'; p.textContent = text; $('chat').prepend(p); }
-function setBusy(b) { state.busy = b; $('send').disabled = b; $('camBtn').disabled = b; }
+function setBusy(b) { state.busy = b; $('send').disabled = b; $('camBtn').disabled = b; $('chat').setAttribute('aria-busy', String(b)); }
 function scrollDown() { $('chat').scrollTop = $('chat').scrollHeight; }
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
