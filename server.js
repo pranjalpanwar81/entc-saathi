@@ -14,10 +14,12 @@ const API_KEY = process.env.BHARATCODE_API_KEY || '';
 const BASE_URL = (process.env.BHARATCODE_BASE_URL || 'https://bharatcode.ai/api/model/v1').replace(/\/$/, '');
 const MODEL = process.env.BHARATCODE_MODEL || 'qwen-3.8-27b';
 const DEMO = process.env.DEMO_MODE === '1';
-// Optional: 'none' | 'low' | 'medium' | 'high'. Lower = faster answers. Unset = model default.
 // 'inline' (default): one model call, numbers computed from [[calc]] tags. 'api': OpenAI tool calling (extra round per calculation).
 const TOOL_MODE = process.env.TOOL_MODE === 'api' ? 'api' : 'inline';
-const REASONING_EFFORT = process.env.BHARATCODE_REASONING_EFFORT || '';
+// How long the model "thinks" before answering: 'none' | 'low' | 'medium' | 'high' | 'default'.
+// The calculator tags do the arithmetic, so a low effort keeps answers fast without losing accuracy.
+let REASONING_EFFORT = process.env.BHARATCODE_REASONING_EFFORT || 'low';
+if (REASONING_EFFORT === 'default') REASONING_EFFORT = '';
 const FIRST_BYTE_TIMEOUT_MS = 90_000;  // give up if BharatCode doesn't respond at all
 const IDLE_TIMEOUT_MS = 120_000;       // give up if the stream goes silent
 const MAX_IMAGE_CHARS = 4_000_000; // ~3 MB image as a data URL
@@ -192,6 +194,14 @@ async function callModel(messages, allowTools, emit) {
   }
   resetIdle();
   console.log(`[api] ${res.status} ${res.headers.get('content-type')} in ${Date.now() - started} ms, tools=${allowTools}, x-request-id=${res.headers.get('x-request-id')}`);
+  if (!res.ok && res.status === 400 && payload.reasoning_effort) {
+    // If the API does not accept this reasoning setting, drop it for good and retry once.
+    const raw = await res.text();
+    console.warn(`[api] 400 with reasoning_effort=${payload.reasoning_effort}; retrying without it. ${raw.slice(0, 200)}`);
+    clearTimeout(timer);
+    REASONING_EFFORT = '';
+    return callModel(messages, allowTools, emit);
+  }
   if (!res.ok) {
     const raw = await res.text();
     let msg; try { msg = JSON.parse(raw)?.error?.message; } catch { /* not json */ }
