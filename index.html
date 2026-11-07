@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ENTC Saathi: AI exam tutor for ENTC students</title>
+<meta name="description" content="Explain, quiz, viva practice and photo grading of handwritten answers for Electronics & Telecommunication students. Powered by BharatCode.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ff9a3c'/><text x='50' y='66' font-size='46' text-anchor='middle' font-family='Arial' font-weight='bold' fill='%23111'>ES</text></svg>">
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --line: #2a2f3a;
+    --text: #e8eaef; --muted: #9aa3b2; --accent: #ff9a3c; --accent2: #3ccfff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  button { font: inherit; }
+  .app { display: grid; grid-template-columns: 300px 1fr; height: 100vh; height: 100dvh; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); padding: 20px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .logo { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), #ff5e3a); display: grid; place-items: center; font-weight: 800; color: #111; }
+  .brand h1 { font-size: 19px; margin: 0; }
+  .tag { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  label, .lbl { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 16px 0 6px; }
+  select, input[type=text] { width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font: inherit; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { padding: 8px; border: 0; background: var(--panel2); color: var(--muted); cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #111; font-weight: 700; }
+  .modes { display: grid; gap: 8px; }
+  .mode { text-align: left; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); cursor: pointer; }
+  .mode b { display: block; font-size: 14px; }
+  .mode span { font-size: 12.5px; color: var(--muted); }
+  .mode.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .new { margin-top: 18px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+  .new:hover { color: var(--text); }
+  .foot { margin-top: 20px; font-size: 12px; color: var(--muted); }
+  main { display: flex; flex-direction: column; min-width: 0; position: relative; }
+  #chat { flex: 1; overflow-y: auto; padding: 28px clamp(16px, 5vw, 64px); }
+  .welcome { max-width: 760px; margin: 5vh auto 0; text-align: center; }
+  .welcome h2 { font-size: 28px; margin: 0 0 8px; }
+  .welcome p { color: var(--muted); margin: 0 0 22px; }
+  .feature { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 0 0 24px; text-align: left; }
+  .feature div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-size: 13px; color: var(--muted); }
+  .feature b { display: block; color: var(--text); font-size: 14px; margin-bottom: 2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .chip { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; font-size: 13.5px; }
+  .chip:hover { border-color: var(--accent); }
+  .chip.hot { border-color: var(--accent); color: var(--accent); }
+  .msg { max-width: 820px; margin: 0 auto 20px; display: flex; gap: 12px; }
+  .msg .who { flex: 0 0 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+  .msg.user .who { background: #2b3445; color: var(--accent2); }
+  .msg.assistant .who { background: linear-gradient(135deg, var(--accent), #ff5e3a); color: #111; }
+  .bubble { min-width: 0; flex: 1; padding: 2px 0; overflow-wrap: anywhere; }
+  .msg.user .text { white-space: pre-wrap; }
+  .msg.user img { display: block; max-width: min(320px, 100%); max-height: 320px; border-radius: 10px; border: 1px solid var(--line); margin-bottom: 6px; }
+  .imgnote { font-size: 12.5px; color: var(--muted); }
+  .bubble h3 { font-size: 16px; margin: 14px 0 6px; color: var(--accent); }
+  .bubble p { margin: 6px 0; }
+  .bubble ul, .bubble ol { margin: 6px 0; padding-left: 22px; }
+  .bubble code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13.5px; }
+  .bubble pre { background: var(--panel2); border: 1px solid var(--line); padding: 12px; border-radius: 8px; overflow-x: auto; }
+  .bubble pre code { background: none; padding: 0; }
+  .bubble table { border-collapse: collapse; margin: 8px 0; display: block; overflow-x: auto; }
+  .bubble td, .bubble th { border: 1px solid var(--line); padding: 4px 10px; }
+  .bubble th { background: var(--panel2); }
+  .tools { margin-top: 6px; display: flex; gap: 8px; }
+  .tools button { padding: 3px 10px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
+  .tools button:hover { color: var(--text); }
+  .calcs { margin: 2px 0 10px; border: 1px solid #2d4a3a; background: #13211a; border-radius: 10px; padding: 8px 12px; font-size: 13.5px; }
+  .calcs summary { cursor: pointer; color: #6ee7a8; font-weight: 600; }
+  .calcs ul { margin: 6px 0 2px; padding-left: 18px; }
+  .calcs li { margin: 3px 0; }
+  .calc-name { color: var(--muted); }
+  .calc-err { color: #ff7b7b; font-weight: 400; }
+  .error { color: #ff7b7b; }
+  .note { color: var(--muted); font-size: 13px; font-style: italic; }
+  .typing span { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .2 } 40% { opacity: 1 } }
+  form { border-top: 1px solid var(--line); padding: 12px clamp(16px, 5vw, 64px); background: var(--bg); }
+  .attach-preview { max-width: 820px; margin: 0 auto 8px; display: none; align-items: center; gap: 10px; }
+  .attach-preview.on { display: flex; }
+  .attach-preview img { height: 56px; border-radius: 8px; border: 1px solid var(--line); }
+  .attach-preview button { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 6px; padding: 3px 9px; cursor: pointer; font-size: 12px; }
+  .composer { max-width: 820px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+  .cam { flex: 0 0 48px; height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; font-size: 20px; }
+  .cam:hover { border-color: var(--accent); }
+  textarea { flex: 1; resize: none; min-height: 48px; max-height: 220px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; }
+  textarea:focus, select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button.send { padding: 12px 20px; height: 48px; border-radius: 12px; border: 0; background: var(--accent); color: #111; font-weight: 700; cursor: pointer; }
+  button.send:disabled { opacity: .5; cursor: default; }
+  .hint { max-width: 820px; margin: 6px auto 0; font-size: 12px; color: var(--muted); }
+  .drop { position: absolute; inset: 0; background: rgba(255,154,60,.12); border: 3px dashed var(--accent); display: none; place-items: center; font-size: 20px; font-weight: 700; z-index: 5; pointer-events: none; }
+  .drop.on { display: grid; }
+  .menu { display: none; }
+  @media (max-width: 800px) {
+    .app { grid-template-columns: 1fr; }
+    aside { display: none; position: fixed; inset: 0; z-index: 10; }
+    aside.open { display: block; }
+    .menu { display: inline-block; margin: 10px 16px 0; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); align-self: flex-start; }
+    .close { display: block !important; }
+    .hint { display: none; }
+  }
+  .close { display: none; float: right; border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside id="side">
+    <button class="close" id="closeSide">✕</button>
+    <div class="brand"><div class="logo">ES</div><h1>ENTC Saathi</h1></div>
+    <p class="tag">Your AI exam tutor for Electronics &amp; Telecom.</p>
+
+    <label for="subject">Subject</label>
+    <select id="subject"></select>
+
+    <label for="topic">Topic (optional)</label>
+    <input id="topic" type="text" placeholder="e.g. RC low-pass filter">
+
+    <label for="university">University</label>
+    <select id="university"></select>
+
+    <span class="lbl">Language</span>
+    <div class="seg" id="lang">
+      <button type="button" data-lang="en" class="on">English</button>
+      <button type="button" data-lang="hinglish">Hinglish</button>
+    </div>
+
+    <span class="lbl">Mode</span>
+    <div class="modes" id="modes">
+      <button class="mode active" data-mode="explain"><b>📘 Explain</b><span>Concept, formulas, a solved numerical, exam tips</span></button>
+      <button class="mode" data-mode="quiz"><b>📝 Quiz me</b><span>Exam questions one by one, marked like a paper</span></button>
+      <button class="mode" data-mode="check"><b>✅ Check my answer</b><span>Snap your answer sheet and get step-by-step grading</span></button>
+      <button class="mode" data-mode="viva"><b>🎤 Viva practice</b><span>Mock oral exam with a score out of 10</span></button>
+    </div>
+
+    <button class="new" id="newChat">+ New session</button>
+    <p class="foot">Powered by the BharatCode model API. Built for the BharatCode Build League. AI can make mistakes, so cross-check with your textbook.</p>
+  </aside>
+
+  <main id="main">
+    <button class="menu" id="menuBtn">☰ Subject, mode &amp; settings</button>
+    <div id="chat"></div>
+    <form id="form">
+      <div class="attach-preview" id="preview"><img id="previewImg" alt="Attached photo"><span class="imgnote">Photo attached</span><button type="button" id="removeImg">Remove</button></div>
+      <div class="composer">
+        <button class="cam" type="button" id="camBtn" title="Attach a photo of your answer sheet or circuit" aria-label="Attach photo">📷</button>
+        <input id="file" type="file" accept="image/*" hidden>
+        <textarea id="input" rows="1" placeholder="Ask about any ENTC topic…"></textarea>
+        <button class="send" id="send" type="submit">Send</button>
+      </div>
+      <div class="hint">Enter to send · Shift+Enter for a new line · 📷 or paste/drop a photo of your handwritten answer</div>
+    </form>
+    <div class="drop" id="drop">Drop your answer-sheet photo</div>
+  </main>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('entc-saathi:' + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('entc-saathi:' + k, JSON.stringify(v)); } catch { /* storage full or blocked */ } },
+};
+const state = { mode: 'explain', language: 'en', messages: [], busy: false, image: null };
+
+const STARTERS = {
+  explain: ['Explain an op-amp integrator', 'How does a PLL work?', 'Explain the sampling theorem', 'Why is a BJT biased with a voltage divider?'],
+  quiz: ['Quiz me on RC circuits', 'Quiz me on Laplace transforms', 'Quiz me on 8051 timers', 'Quiz me on AM modulation'],
+  check: ['📷 Grade a photo of my answer', 'Here is my question and my working:\n\nQ: \n\nMy answer: '],
+  viva: ['Take my viva on the full-wave rectifier experiment', 'Viva on the 555 timer astable multivibrator', 'Viva on BJT CE amplifier frequency response'],
+};
+const PLACEHOLDERS = {
+  explain: 'Ask about any ENTC topic…',
+  quiz: 'Name a topic to be quizzed on, or type your answer…',
+  check: 'Attach a photo 📷 or paste the question and your working…',
+  viva: 'Name the experiment or topic for your viva, then answer the examiner…',
+};
+
+// ---------- setup ----------
+async function init() {
+  let cfg = { subjects: [], universities: [], ready: true };
+  try { cfg = await fetch('/api/config').then((r) => r.json()); } catch { /* offline */ }
+  $('subject').innerHTML = '<option value="">Any subject</option>' + cfg.subjects.map((s) => `<option>${esc(s)}</option>`).join('');
+  $('university').innerHTML = '<option value="">Not specified</option>' + cfg.universities.map((s) => `<option>${esc(s)}</option>`).join('');
+
+  const saved = store.get('settings', {});
+  if (saved.subject) $('subject').value = saved.subject;
+  if (saved.university) $('university').value = saved.university;
+  if (saved.topic) $('topic').value = saved.topic;
+  if (saved.language) setLang(saved.language);
+  setMode(saved.mode || 'explain', false);
+
+  state.messages = store.get('messages', []);
+  if (state.messages.length) {
+    $('chat').innerHTML = '';
+    state.messages.forEach((m) => m.role === 'user' ? addUser(m.content, m.image || null, m.hadImage) : addAssistant(m.content, m.calcs));
+  } else renderWelcome();
+  if (!cfg.ready) addNote('The server has no BharatCode API key yet. Add BHARATCODE_API_KEY to the .env file and restart.');
+}
+
+function saveSettings() {
+  store.set('settings', { subject: $('subject').value, university: $('university').value, topic: $('topic').value, language: state.language, mode: state.mode });
+}
+['subject', 'university', 'topic'].forEach((id) => $(id).addEventListener('change', saveSettings));
+
+function renderWelcome() {
+  $('chat').innerHTML = `<div class="welcome"><h2>Namaste! What are we studying today?</h2>
+    <p>Pick a subject and a mode, or start with one of these.</p>
+    <div class="feature">
+      <div><b>📘 Explain</b>Concepts with solved numericals</div>
+      <div><b>📝 Quiz</b>Exam questions, marked like a paper</div>
+      <div><b>📷 Photo grading</b>Snap your handwritten answer</div>
+      <div><b>🎤 Viva</b>Mock examiner, score out of 10</div>
+      <div><b>🧮 Exact numericals</b>Every number checked by a real calculator</div>
+    </div>
+    <div class="chips">${STARTERS[state.mode].map((s) => `<button class="chip${s.startsWith('📷') ? ' hot' : ''}" type="button">${esc(s.split('\n')[0])}</button>`).join('')}</div></div>`;
+  $('chat').querySelectorAll('.chip').forEach((b, i) => b.onclick = () => {
+    const text = STARTERS[state.mode][i];
+    if (text.startsWith('📷')) { $('file').click(); return; }
+    if (text.includes('\n')) { $('input').value = text; $('input').focus(); autoGrow(); } else send(text);
+  });
+}
+
+function setMode(mode, reset = true) {
+  state.mode = mode;
+  document.querySelectorAll('.mode').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+  $('input').placeholder = PLACEHOLDERS[mode];
+  if (reset) newSession();
+  saveSettings();
+}
+function setLang(lang) {
+  state.language = lang;
+  document.querySelectorAll('#lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === lang));
+}
+document.querySelectorAll('.mode').forEach((btn) => btn.onclick = () => { setMode(btn.dataset.mode); $('side').classList.remove('open'); });
+document.querySelectorAll('#lang button').forEach((btn) => btn.onclick = () => { setLang(btn.dataset.lang); saveSettings(); });
+$('newChat').onclick = () => { newSession(); $('side').classList.remove('open'); };
+$('menuBtn').onclick = () => $('side').classList.add('open');
+$('closeSide').onclick = () => $('side').classList.remove('open');
+
+function newSession() { state.messages = []; store.set('messages', []); clearImage(); renderWelcome(); }
+
+// ---------- photos ----------
+$('camBtn').onclick = () => $('file').click();
+$('file').onchange = () => { if ($('file').files[0]) attachFile($('file').files[0]); $('file').value = ''; };
+$('removeImg').onclick = clearImage;
+document.addEventListener('paste', (e) => {
+  const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
+  if (item) { e.preventDefault(); attachFile(item.getAsFile()); }
+});
+let dragDepth = 0;
+$('main').addEventListener('dragenter', (e) => { if ([...e.dataTransfer.types].includes('Files')) { dragDepth++; $('drop').classList.add('on'); } });
+$('main').addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('drop').classList.remove('on'); } });
+$('main').addEventListener('dragover', (e) => e.preventDefault());
+$('main').addEventListener('drop', (e) => {
+  e.preventDefault(); dragDepth = 0; $('drop').classList.remove('on');
+  const f = [...e.dataTransfer.files].find((x) => x.type.startsWith('image/'));
+  if (f) attachFile(f);
+});
+
+// Shrink photos in the browser so uploads stay fast on mobile data.
+async function attachFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    if (state.mode !== 'check' && !state.messages.length) setMode('check'); // switch first: changing mode clears the composer
+    state.image = canvas.toDataURL('image/jpeg', 0.85);
+    $('previewImg').src = state.image; $('preview').classList.add('on');
+    $('input').focus();
+  } catch { alert('Could not read that image. Try a JPG or PNG.'); }
+}
+function clearImage() { state.image = null; $('preview').classList.remove('on'); $('previewImg').removeAttribute('src'); }
+
+// ---------- chat ----------
+$('form').onsubmit = (e) => { e.preventDefault(); send($('input').value); };
+$('input').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send($('input').value); } });
+$('input').addEventListener('input', autoGrow);
+function autoGrow() { const t = $('input'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 220) + 'px'; }
+
+async function send(text) {
+  text = text.trim();
+  const image = state.image;
+  if ((!text && !image) || state.busy) return;
+  if (!text) text = state.mode === 'check' ? 'Please grade my answer in this photo.' : 'Please look at this photo.';
+  if (!state.messages.length) $('chat').innerHTML = '';
+  const userMsg = { role: 'user', content: text };
+  if (image) userMsg.image = image;
+  state.messages.push(userMsg);
+  addUser(text, image);
+  $('input').value = ''; autoGrow(); clearImage();
+  setBusy(true);
+
+  const bubble = addAssistant(null);
+  let reply = '';
+  const calcs = [];
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: state.mode, language: state.language, subject: $('subject').value, university: $('university').value, topic: $('topic').value, messages: state.messages }),
+    });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `Request failed (${res.status})`); }
+
+    // The server streams one JSON event per line: text pieces, calculator results, then done.
+    const reader = res.body.getReader(); const dec = new TextDecoder();
+    let buf = '', extra = '', lastPaint = 0, streamError = null;
+    const handle = (evt) => {
+      if (evt.type === 'text') reply += evt.text;
+      else if (evt.type === 'tool') calcs.push({ name: evt.name, args: evt.args, result: evt.result });
+      else if (evt.type === 'truncated') extra = '<p class="note">(Answer was cut short. Type "continue" for the rest.)</p>';
+      else if (evt.type === 'error') streamError = evt.message;
+    };
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+        if (line.trim()) { try { handle(JSON.parse(line)); } catch { /* ignore a malformed line */ } }
+      }
+      if (performance.now() - lastPaint > 60) { paint(bubble, reply, true, '', calcs); lastPaint = performance.now(); }
+    }
+    if (streamError) extra += `<p class="error">⚠ ${esc(streamError)}</p>`;
+    if (!reply.trim()) throw new Error(streamError || 'Empty reply from the model. Please try again.');
+    state.messages.push({ role: 'assistant', content: reply, calcs });
+    paint(bubble, reply, false, extra, calcs);
+  } catch (err) {
+    state.messages.pop();
+    if (reply.trim()) { state.messages.push(userMsg); state.messages.push({ role: 'assistant', content: reply, calcs }); }
+    bubble.innerHTML = calcHtml(calcs) + (reply ? md(reply) : '') + `<p class="error">⚠ ${esc(err.message)}</p>`;
+  }
+  persist();
+  setBusy(false);
+  scrollDown();
+}
+
+function persist() {
+  // Keep text history across refreshes; drop photo data to stay within browser storage limits.
+  store.set('messages', state.messages.slice(-30).map((m) => m.image ? { role: m.role, content: m.content, hadImage: true } : m));
+}
+
+// The "verified calculations" box: every number the tutor computed with a real calculator tool.
+const TOOL_LABELS = {
+  calculate: 'Calculation', rc_filter: 'RC filter', rlc_resonance: 'RLC resonance', opamp_gain: 'Op-amp gain',
+  voltage_divider: 'Voltage divider', parallel_resistance: 'Resistor network', timer_555_astable: '555 astable', db_convert: 'Decibels',
+};
+function calcHtml(calcs) {
+  if (!calcs || !calcs.length) return '';
+  const rows = calcs.map((c) => {
+    const args = c.args && typeof c.args === 'object'
+      ? (c.name === 'calculate' ? String(c.args.expression ?? '') : Object.entries(c.args).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(', ') : v}`).join(', '))
+      : String(c.args ?? '');
+    const out = c.result?.error ? `<span class="calc-err">⚠ ${esc(c.result.error)}</span>` : esc(c.result?.formatted ?? '');
+    return `<li><span class="calc-name">${esc(TOOL_LABELS[c.name] || c.name)}</span> <code>${esc(args)}</code> → <b>${out}</b></li>`;
+  }).join('');
+  return `<details class="calcs" open><summary>🧮 ${calcs.length} calculation${calcs.length > 1 ? 's' : ''} verified with the calculator</summary><ul>${rows}</ul></details>`;
+}
+
+function paint(bubble, text, streaming, extra = '', calcs = []) {
+  const nearBottom = $('chat').scrollHeight - $('chat').scrollTop - $('chat').clientHeight < 120;
+  bubble.innerHTML = calcHtml(calcs) + (text ? md(text) : (streaming ? '<div class="typing"><span></span><span></span><span></span></div>' : '')) + extra + (streaming ? '' : tools());
+  if (!streaming) bindTools(bubble, text);
+  if (nearBottom) scrollDown();
+}
+const tools = () => '<div class="tools"><button type="button" data-act="copy">Copy</button></div>';
+function bindTools(bubble, text) {
+  const b = bubble.querySelector('[data-act=copy]');
+  if (b) b.onclick = async () => {
+    try { await navigator.clipboard.writeText(text); b.textContent = 'Copied ✓'; } catch { b.textContent = 'Copy failed'; }
+    setTimeout(() => (b.textContent = 'Copy'), 1500);
+  };
+}
+
+function addUser(text, image, hadImage) {
+  const el = msgEl('user', 'You');
+  const b = el.querySelector('.bubble');
+  if (image) { const img = document.createElement('img'); img.src = image; img.alt = 'Your photo'; b.appendChild(img); }
+  else if (hadImage) b.insertAdjacentHTML('beforeend', '<div class="imgnote">📷 photo attached</div>');
+  const t = document.createElement('div'); t.className = 'text'; t.textContent = text; b.appendChild(t);
+  scrollDown();
+}
+function addAssistant(text, calcs) {
+  const el = msgEl('assistant', 'ES');
+  const b = el.querySelector('.bubble');
+  if (text == null) b.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  else { b.innerHTML = calcHtml(calcs) + md(text) + tools(); bindTools(b, text); }
+  scrollDown();
+  return b;
+}
+function msgEl(role, who) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + role;
+  el.innerHTML = `<div class="who">${who}</div><div class="bubble"></div>`;
+  $('chat').appendChild(el);
+  return el;
+}
+function addNote(text) { const p = document.createElement('p'); p.className = 'note'; p.style.textAlign = 'center'; p.textContent = text; $('chat').prepend(p); }
+function setBusy(b) { state.busy = b; $('send').disabled = b; $('camBtn').disabled = b; }
+function scrollDown() { $('chat').scrollTop = $('chat').scrollHeight; }
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// Small, safe Markdown renderer (escapes HTML first).
+function md(src) {
+  const blocks = [];
+  src = esc(src).replace(/```[\w-]*\n?([\s\S]*?)(```|$)/g, (_, code) => { blocks.push(code); return `\u0000${blocks.length - 1}\u0000`; });
+  const inline = (s) => s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*\w])\*([^*\s][^*]*)\*(?!\w)/g, '$1<em>$2</em>');
+  const out = []; let list = null; let table = null;
+  const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  const closeTable = () => { if (table) { out.push('</table>'); table = null; } };
+  for (const raw of src.split('\n')) {
+    const line = raw.trimEnd();
+    let m;
+    if (/^\u0000\d+\u0000$/.test(line.trim())) { closeList(); closeTable(); out.push(line.trim()); continue; }
+    if (/^\s*\|.*\|\s*$/.test(line)) {
+      closeList();
+      if (/^\s*\|[\s:|-]+\|\s*$/.test(line)) continue;
+      const cells = line.trim().slice(1, -1).split('|').map((c) => inline(c.trim()));
+      if (!table) { out.push('<table>'); table = true; out.push('<tr>' + cells.map((c) => `<th>${c}</th>`).join('') + '</tr>'); }
+      else out.push('<tr>' + cells.map((c) => `<td>${c}</td>`).join('') + '</tr>');
+      continue;
+    }
+    closeTable();
+    if ((m = line.match(/^(#{1,4})\s+(.*)/))) { closeList(); out.push(`<h3>${inline(m[2])}</h3>`); }
+    else if ((m = line.match(/^\s*[-*•]\s+(.*)/))) { if (list !== 'ul') { closeList(); out.push('<ul>'); list = 'ul'; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if ((m = line.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== 'ol') { closeList(); out.push('<ol>'); list = 'ol'; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if (!line.trim()) { closeList(); }
+    else { closeList(); out.push(`<p>${inline(line)}</p>`); }
+  }
+  closeList(); closeTable();
+  return out.join('\n').replace(/\u0000(\d+)\u0000/g, (_, i) => `<pre><code>${blocks[i]}</code></pre>`);
+}
+
+init();
+</script>
+</body>
+</html>

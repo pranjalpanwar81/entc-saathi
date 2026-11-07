@@ -1,0 +1,14 @@
+# One-click deploy on Render (https://render.com). Set BHARATCODE_API_KEY in the dashboard when asked.
+services:
+  - type: web
+    name: entc-saathi
+    runtime: node
+    plan: free
+    buildCommand: "echo no build needed"
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: BHARATCODE_API_KEY
+        sync: false
+      - key: BHARATCODE_MODEL
+        value: qwen-3.8-27b

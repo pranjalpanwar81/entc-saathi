@@ -1,0 +1,17 @@
+Project: ENTC Saathi
+Event: BharatCode Build League (Round 1)
+Builder: Pranjal Panwar (GitHub: pranjalpanwar81)
+Direction: Learning & education
+
+ENTC Saathi is an AI exam tutor for Electronics & Telecommunication students.
+Students can photograph their handwritten answers and get them graded step by
+step like a university examiner would. It also explains concepts with solved
+numericals, quizzes with marked exam questions, and runs mock vivas, with
+university-specific exam styles and an optional Hinglish mode.
+
+BharatCode usage:
+- Model: qwen-3.8-27b
+- Endpoint: https://bharatcode.ai/api/model/v1/chat/completions
+- Features used: streaming responses, function calling (8 calculator tools so
+  every number is computed exactly) and image input
+- All model calls go through server.js, so the API key stays on the server.
