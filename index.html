@@ -354,14 +354,16 @@ function persist() {
 
 // The "verified calculations" box: every number the tutor computed with a real calculator tool.
 const TOOL_LABELS = {
-  calculate: 'Calculation', rc_filter: 'RC filter', rlc_resonance: 'RLC resonance', opamp_gain: 'Op-amp gain',
+  calculate: 'Calculation', check: 'Answer check', rc_filter: 'RC filter', rlc_resonance: 'RLC resonance', opamp_gain: 'Op-amp gain',
   voltage_divider: 'Voltage divider', parallel_resistance: 'Resistor network', timer_555_astable: '555 astable', db_convert: 'Decibels',
 };
 function calcHtml(calcs) {
   if (!calcs || !calcs.length) return '';
   const rows = calcs.map((c) => {
     const args = c.args && typeof c.args === 'object'
-      ? (c.name === 'calculate' ? String(c.args.expression ?? '') : Object.entries(c.args).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(', ') : v}`).join(', '))
+      ? (c.name === 'calculate' ? String(c.args.expression ?? '')
+        : c.name === 'check' ? `yours: ${c.args.student ?? '?'}  vs  ${c.args.expression ?? ''}`
+        : Object.entries(c.args).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(', ') : v}`).join(', '))
       : String(c.args ?? '');
     const out = c.result?.error ? `<span class="calc-err">⚠ ${esc(c.result.error)}</span>` : esc(c.result?.formatted ?? '');
     return `<li><span class="calc-name">${esc(TOOL_LABELS[c.name] || c.name)}</span> <code>${esc(args)}</code> → <b>${out}</b></li>`;

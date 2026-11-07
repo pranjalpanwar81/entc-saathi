@@ -24,7 +24,7 @@ ENTC Saathi is built for how ENTC students actually study.
 
 | | Feature | What it does |
 |---|---|---|
-| 🧮 | **Exact numericals** | Language models are bad at arithmetic. ENTC Saathi never lets the model guess a number: it calls real calculator tools (RC filter, RLC resonance, op-amp gain, 555 timer, voltage divider, resistor networks, dB and a general calculator) and shows every verified calculation. |
+| 🧮 | **Exact numericals** | Language models are bad at arithmetic. ENTC Saathi never lets the model guess a number: every value is computed by a real calculator, a student's numbers are checked automatically (✅/❌ with the correct value), and every verified calculation is shown. |
 | 📷 | **Photo grading** | Snap or paste a photo of your handwritten working. You get a score, line-by-line ✅/❌ marking, the corrected solution and a tip. |
 | 📘 | **Explain** | Intuition → key formulas → a solved exam-style numerical → common mistakes → likely exam questions |
 | 📝 | **Quiz me** | One question at a time with marks. It grades your answer (typed or photographed) and the difficulty adapts to you. |
@@ -39,18 +39,19 @@ ENTC Saathi is built for how ENTC students actually study.
 ## How it works
 
 ```
-Browser (index.html)          Node server (server.js)                 BharatCode API
- • chat UI, modes, settings ─▶ • builds the tutor prompt            ─▶ qwen-3.8-27b
- • photo resize (≤1600px)      • tool loop: model asks for a         /chat/completions
- • shows verified calcs     ◀─   calculation → tools.js computes  ◀─ (stream, tools, image input)
-                                 it exactly → result goes back to
-                                 the model → final answer streams
+Browser (index.html)          Node server (server.js)                   BharatCode API
+ • chat UI, modes, settings ─▶ • builds the tutor prompt              ─▶ qwen-3.8-27b
+ • photo resize (≤1600px)      • ONE streamed model call per answer      /chat/completions
+ • shows verified calcs     ◀─ • model writes [[calc: …]] / [[check: …]] (stream, image input)
+                                 tags; tools.js evaluates them exactly
+                                 as the text streams and swaps in values
                                • keeps the API key on the server
-                               • retries when the model is busy (503)
+                               • shows queue status, retries on 503
 ```
 
-- Uses BharatCode's OpenAI-compatible `/chat/completions` endpoint with **streaming**, **function calling** and **image input**.
-- `tools.js` has a safe expression parser (no `eval`) that understands engineering suffixes like `10k`, `0.1u` and `4.7n`, plus 7 ENTC formula tools. The model can call tools over several rounds, and bad inputs are returned to it as errors so it can correct itself.
+- Uses BharatCode's OpenAI-compatible `/chat/completions` endpoint with **streaming** and **image input**.
+- **Exact numbers in a single model call.** The model never does arithmetic. It writes tags like `[[calc: 1/(2*pi*4.7k*10n) | Hz]]` and the server evaluates them with a safe parser (no `eval`) as the answer streams in. `[[check: 33.9k | … | Hz]]` compares a student's number with the exact value (2 % tolerance) and shows ✅ or ❌ with the correct value.
+- **Why tags and not function calling?** Function calling needs a second model call after every calculation, and on a shared, queued API that doubled the wait. Tags give the same exactness with one call. Classic tool calling with 8 ENTC formula tools is still built in (`TOOL_MODE=api`).
 - Unit tests: `node --test`
 - **Zero dependencies.** It only needs Node.js 18 or newer, with no `npm install`.
 - The API key never reaches the browser. Photos are resized in the browser and only the latest one is sent, so requests stay small.
@@ -80,7 +81,7 @@ The repo includes `render.yaml`. On [Render](https://render.com), choose **New �
 | File | Purpose |
 |---|---|
 | `server.js` | HTTP server, tutor prompts, streaming BharatCode API call with the tool loop |
-| `tools.js` | Calculator tools and the safe expression evaluator |
+| `tools.js` | Safe expression evaluator, inline `[[calc]]`/`[[check]]` tags and the function-calling tools |
 | `test/tools.test.js` | Unit tests for every tool (`node --test`) |
 | `index.html` | The whole web UI (chat, photo upload, modes, Markdown rendering) |
 | `render.yaml` | One-click deploy config |

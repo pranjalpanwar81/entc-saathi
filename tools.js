@@ -198,3 +198,80 @@ function runTool(name, argsJson) {
 }
 
 module.exports = { evaluate, eng, TOOLS, TOOL_DEFS, runTool };
+
+// ---------- inline calculator tags (single round, no extra API call) ----------
+// The model writes tags inside its answer and the server replaces them while streaming:
+//   [[calc: 1/(2*pi*4.7k*10n) | Hz]]          -> "3.386 kHz"
+//   [[check: 3.39k | 1/(2*pi*4.7k*10n) | Hz]] -> "3.39 kHz ✅" or "1.6 V ❌ (correct: **-1.6 V**)"
+// This keeps every number exact without paying for a second (queued) model call.
+const CHECK_TOLERANCE = 0.02; // 2 %, to allow for rounding in a student's working
+
+function parseStudentValue(raw, unit) {
+  let s = String(raw).trim().replace(/[×x]\s*10\^?\s*([+-]?\d+)/g, 'e$1');
+  if (unit) s = s.split(unit).join('');
+  s = s.replace(/Ω|ohms?/gi, '').replace(/\s+/g, '');
+  return evaluate(s);
+}
+
+function renderTag(inner) {
+  const parts = inner.split('|').map((p) => p.trim());
+  const kind = parts[0].match(/^(calc|check)\s*:/i)?.[1]?.toLowerCase();
+  if (!kind) return null;
+  parts[0] = parts[0].replace(/^(calc|check)\s*:/i, '').trim();
+  try {
+    if (kind === 'calc') {
+      const [expression, unit = ''] = parts;
+      const v = evaluate(expression);
+      const formatted = eng(v, unit);
+      return { text: formatted, event: { name: 'calculate', args: { expression, ...(unit && { unit }) }, result: { result: v, formatted } } };
+    }
+    const [studentRaw, expression, unit = ''] = parts;
+    const correct = evaluate(expression);
+    const correctText = eng(correct, unit);
+    let student;
+    try { student = parseStudentValue(studentRaw, unit); } catch { student = null; }
+    if (student === null || !Number.isFinite(student)) {
+      return { text: `${studentRaw} (correct: **${correctText}**)`, event: { name: 'check', args: { student: studentRaw, expression }, result: { formatted: `correct value ${correctText} (student value unreadable)` } } };
+    }
+    const ok = correct === 0 ? Math.abs(student) < 1e-12 : Math.abs(student - correct) <= CHECK_TOLERANCE * Math.abs(correct);
+    const studentText = eng(student, unit);
+    const text = ok ? `${studentText} ✅` : `${studentText} ❌ (correct: **${correctText}**)`;
+    return { text, event: { name: 'check', args: { student: studentRaw, expression }, result: { correct: ok, formatted: ok ? `${studentText} ✅ matches ${correctText}` : `${studentText} ❌ should be ${correctText}` } } };
+  } catch (e) {
+    return { text: `${parts[0]} (calculation error)`, event: { name: kind === 'check' ? 'check' : 'calculate', args: { expression: parts[kind === 'check' ? 1 : 0] }, result: { error: e.message } } };
+  }
+}
+
+// Streaming transformer: feed it text chunks, it emits text with tags replaced.
+class InlineCalc {
+  constructor(emitText, emitTool) { this.pending = ''; this.emitText = emitText; this.emitTool = emitTool; }
+  push(chunk) {
+    this.pending += chunk;
+    for (;;) {
+      const start = this.pending.indexOf('[[');
+      if (start === -1) {
+        // Hold back a trailing "[" in case it is the start of a tag.
+        const keep = this.pending.endsWith('[') ? 1 : 0;
+        this.out(this.pending.slice(0, this.pending.length - keep));
+        this.pending = this.pending.slice(this.pending.length - keep);
+        return;
+      }
+      this.out(this.pending.slice(0, start));
+      this.pending = this.pending.slice(start);
+      const end = this.pending.indexOf(']]');
+      if (end === -1) {
+        if (this.pending.length > 400) { this.out(this.pending.slice(0, 2)); this.pending = this.pending.slice(2); continue; }
+        return; // wait for the rest of the tag
+      }
+      const inner = this.pending.slice(2, end);
+      const r = renderTag(inner);
+      if (r) { this.out(r.text); this.emitTool(r.event); } else this.out(this.pending.slice(0, end + 2));
+      this.pending = this.pending.slice(end + 2);
+    }
+  }
+  flush() { if (this.pending) { this.out(this.pending); this.pending = ''; } }
+  out(t) { if (t) this.emitText(t); }
+}
+
+module.exports.InlineCalc = InlineCalc;
+module.exports.renderTag = renderTag;

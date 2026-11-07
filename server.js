@@ -5,7 +5,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { TOOL_DEFS, runTool } = require('./tools');
+const { TOOL_DEFS, runTool, InlineCalc } = require('./tools');
 
 // ---------- config ----------
 loadDotEnv(path.join(__dirname, '.env'));
@@ -15,6 +15,8 @@ const BASE_URL = (process.env.BHARATCODE_BASE_URL || 'https://bharatcode.ai/api/
 const MODEL = process.env.BHARATCODE_MODEL || 'qwen-3.8-27b';
 const DEMO = process.env.DEMO_MODE === '1';
 // Optional: 'none' | 'low' | 'medium' | 'high'. Lower = faster answers. Unset = model default.
+// 'inline' (default): one model call, numbers computed from [[calc]] tags. 'api': OpenAI tool calling (extra round per calculation).
+const TOOL_MODE = process.env.TOOL_MODE === 'api' ? 'api' : 'inline';
 const REASONING_EFFORT = process.env.BHARATCODE_REASONING_EFFORT || '';
 const FIRST_BYTE_TIMEOUT_MS = 90_000;  // give up if BharatCode doesn't respond at all
 const IDLE_TIMEOUT_MS = 120_000;       // give up if the stream goes silent
@@ -46,12 +48,20 @@ Rules:
 - Use short sections, bullet points and **bold** key terms. Keep answers exam-focused.
 - If the student sends a photo (handwritten working, a circuit diagram, a question paper), first say briefly what you can read in it, then help. If part of it is unreadable, say which part instead of guessing.
 - If the question is outside electronics/telecom, answer briefly and steer back to the subject.
-- Never invent datasheet values; say "check the datasheet" when unsure.
-Calculator tools:
+- Never invent datasheet values; say "check the datasheet" when unsure.`;
+
+const CALC_API = `Calculator tools:
 - You have exact calculator tools (calculate, rc_filter, rlc_resonance, opamp_gain, voltage_divider, parallel_resistance, timer_555_astable, db_convert).
 - NEVER do arithmetic in your head. Use a tool for every numeric result, including checking a student's numbers.
 - Pass values with SI suffixes where natural ("10k", "0.1u"). Prefer the specific formula tool when it fits, otherwise use calculate.
 - In your answer, still show the formula and the substitution, then state the tool's result with units.`;
+
+const CALC_INLINE = `Calculator (very important):
+- Never do arithmetic yourself. Wherever a numeric result appears, write a calculator tag. The system replaces it with the exact value before the student sees it:
+  [[calc: EXPRESSION | UNIT]]   example: fc = 1/(2*pi*R*C) = [[calc: 1/(2*pi*4.7k*10n) | Hz]]
+- EXPRESSION supports + - * / ^ ( ), pi, e, sqrt, ln, log10, exp, sin/cos/tan (radians), deg(), rad() and suffixes p n u m k M G (4.7k, 10n, 0.1u). UNIT is the SI base unit (Hz, s, V, A, Ω, W, F, H) or empty for a plain number; the system adds k, m, µ etc. itself.
+- When grading a student's number, use [[check: STUDENT_VALUE | EXPRESSION | UNIT]], example: your fc = [[check: 3.39k | 1/(2*pi*4.7k*10n) | Hz]]. It shows ✅ if the student is within 2 %, otherwise ❌ with the correct value. Give method marks for the formula and steps; let the tag decide if the number is right.
+- Still show the formula and the substitution in words before each tag. One value per tag. Never put tags inside code blocks.`
 
 const MODES = {
   explain: `Mode: EXPLAIN. Teach the topic the student asks about:
@@ -74,7 +84,7 @@ After 6 questions, give a score out of 10 with strengths and topics to revise.`,
 };
 
 function systemPrompt({ mode, subject, topic, university, language }) {
-  const parts = [BASE_PROMPT, MODES[mode] || MODES.explain];
+  const parts = [BASE_PROMPT, TOOL_MODE === 'api' ? CALC_API : CALC_INLINE, MODES[mode] || MODES.explain];
   if (subject) parts.push(`Subject: ${subject}.`);
   if (topic) parts.push(`Current topic: ${topic}.`);
   if (university) parts.push(`The student studies under ${university}. Match that university's exam pattern, marking style and typical question wording where you know it; do not invent specific syllabus codes.`);
@@ -124,6 +134,14 @@ async function runConversation(messages, emit) {
     return { truncated: false };
   }
   if (!API_KEY) throw httpError(500, 'Server has no BHARATCODE_API_KEY set. Add it to a .env file (see README).');
+
+  if (TOOL_MODE === 'inline') {
+    // One model call; [[calc]] tags are evaluated here as the text streams.
+    const calc = new InlineCalc((text) => emit({ type: 'text', text }), (e) => emit({ type: 'tool', ...e }));
+    const { finish } = await callModel(messages, false, (e) => (e.type === 'text' ? calc.push(e.text) : emit(e)));
+    calc.flush();
+    return { truncated: finish === 'length' };
+  }
 
   const convo = [...messages];
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
@@ -342,7 +360,7 @@ function readBody(req, limit) {
 
 if (require.main === module) {
   server.listen(PORT, () => {
-    console.log(`ENTC Saathi running at http://localhost:${PORT}  (model: ${MODEL}${DEMO ? ', DEMO MODE' : ''})`);
+    console.log(`ENTC Saathi running at http://localhost:${PORT}  (model: ${MODEL}, calculator: ${TOOL_MODE}${DEMO ? ', DEMO MODE' : ''})`);
     if (!API_KEY && !DEMO) console.warn('Warning: BHARATCODE_API_KEY is not set, so chat requests will fail until you add it.');
   });
 }

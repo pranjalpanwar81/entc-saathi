@@ -12,6 +12,7 @@ university-specific exam styles and an optional Hinglish mode.
 BharatCode usage:
 - Model: qwen-3.8-27b
 - Endpoint: https://bharatcode.ai/api/model/v1/chat/completions
-- Features used: streaming responses, function calling (8 calculator tools so
-  every number is computed exactly) and image input
+- Features used: streaming responses and image input. Every number is computed
+  exactly by the server from calculator tags in a single model call
+  (function calling with 8 ENTC tools is also supported: TOOL_MODE=api).
 - All model calls go through server.js, so the API key stays on the server.

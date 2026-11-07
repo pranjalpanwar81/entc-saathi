@@ -72,3 +72,28 @@ test('tool definitions are valid OpenAI function specs', () => {
     assert.strictEqual(d.function.parameters.type, 'object');
   }
 });
+
+const { InlineCalc, renderTag } = require('../tools');
+const runInline = (chunks) => {
+  let text = ''; const events = [];
+  const c = new InlineCalc((t) => (text += t), (e) => events.push(e));
+  chunks.forEach((ch) => c.push(ch)); c.flush();
+  return { text, events };
+};
+test('inline calc: replaces tags, even when split across chunks', () => {
+  const r = runInline(['fc = [[ca', 'lc: 1/(2*pi*4.7k*10n) | Hz]] and tau = [', '[calc: 4.7k*10n | s]].']);
+  assert.strictEqual(r.text, 'fc = 3.386 kHz and tau = 47 µs.');
+  assert.strictEqual(r.events.length, 2);
+});
+test('inline check: right and wrong student answers', () => {
+  assert.match(renderTag('check: 3.39k | 1/(2*pi*4.7k*10n) | Hz').text, /✅/);
+  assert.match(renderTag('check: 3.39 kHz | 1/(2*pi*4.7k*10n) | Hz').text, /✅/);
+  const wrong = renderTag('check: 1.6 | -100k/25k*0.4 | V');
+  assert.match(wrong.text, /❌/); assert.match(wrong.text, /-1.6 V/);
+  assert.match(renderTag('check: 2.2 V | (1+47k/4.7k)*0.2 | V').text, /✅/);
+});
+test('inline calc: bad expressions and plain brackets are safe', () => {
+  assert.match(runInline(['[[calc: 1/0 | V]]']).text, /calculation error/);
+  assert.strictEqual(runInline(['array[[0]] stays']).text, 'array[[0]] stays');
+  assert.strictEqual(runInline(['ends with [']).text, 'ends with [');
+});
