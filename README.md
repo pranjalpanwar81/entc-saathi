@@ -4,9 +4,15 @@
 
 Powered by the **BharatCode model API** · Built for the **BharatCode Build League**
 
-<!-- Add your live link here after deploying: **Try it live → https://your-app.onrender.com** -->
+### 👉 [Try it live: entc-saathi.onrender.com](https://entc-saathi.onrender.com)
+
+*Free hosting: the first visit after a quiet spell can take about 30–50 s to wake up. At busy times BharatCode may queue requests, and the app shows when that's happening.*
 
 ---
+
+<p align="center"><img src="docs/quiz-demo.jpg" width="420" alt="ENTC Saathi marking a student's op-amp answer, with the calculator-verified result"></p>
+
+*Real run on the BharatCode model: the student dropped a minus sign and got the phase wrong, and ENTC Saathi verified the numbers with its calculator and marked it 2.5 / 4.*
 
 ## Why
 
