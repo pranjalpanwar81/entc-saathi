@@ -1,5 +1,7 @@
 # ENTC Saathi 📡
 
+[![tests](https://github.com/pranjalpanwar81/entc-saathi/actions/workflows/tests.yml/badge.svg)](https://github.com/pranjalpanwar81/entc-saathi/actions/workflows/tests.yml) [![live demo](https://img.shields.io/badge/demo-live-ff9a3c)](https://entc-saathi.onrender.com) ![zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen) ![license](https://img.shields.io/badge/license-MIT-blue)
+
 **An AI exam tutor for Electronics & Telecommunication (ENTC / ECE) students. Snap a photo of your handwritten answer and get it graded like a university examiner would.**
 
 Powered by the **BharatCode model API** · Built for the **BharatCode Build League**
@@ -45,6 +47,9 @@ ENTC Saathi is built for how ENTC students actually study.
 
 ## How it works
 
+> 📐 **Design notes:** see [DESIGN.md](DESIGN.md) for the architecture and the measured decisions behind it (why answers went from ~204 s to ~48 s, how numbers stay exact, and how the public demo is protected).
+
+
 ```
 Browser (index.html)          Node server (server.js)                   BharatCode API
  • chat UI, modes, settings ─▶ • builds the tutor prompt              ─▶ qwen-3.8-27b
@@ -89,7 +94,9 @@ The repo includes `render.yaml`. On [Render](https://render.com), choose **New �
 |---|---|
 | `server.js` | HTTP server, tutor prompts, streaming BharatCode API call with the tool loop |
 | `tools.js` | Safe expression evaluator, inline `[[calc]]`/`[[check]]` tags and the function-calling tools |
-| `test/tools.test.js` | Unit tests for every tool (`node --test`) |
+| `test/` | 18 tests: calculator, tools, inline tags, rate limiting (`npm test`, runs on every push) |
+| `rateLimit.js` | Per-user, concurrency and global rate limits for the public demo |
+| `DESIGN.md` | Architecture and measured design decisions |
 | `index.html` | The whole web UI (chat, photo upload, modes, Markdown rendering) |
 | `render.yaml` | One-click deploy config |
 | `BharatCode.txt` | Hackathon entry marker |

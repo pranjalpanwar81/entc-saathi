@@ -6,6 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { TOOL_DEFS, runTool, InlineCalc } = require('./tools');
+const { RateLimiter, clientKey } = require('./rateLimit');
 
 // ---------- config ----------
 loadDotEnv(path.join(__dirname, '.env'));
@@ -23,6 +24,15 @@ if (REASONING_EFFORT === 'default') REASONING_EFFORT = '';
 const FIRST_BYTE_TIMEOUT_MS = 90_000;  // give up if BharatCode doesn't respond at all
 const IDLE_TIMEOUT_MS = 120_000;       // give up if the stream goes silent
 const MAX_IMAGE_CHARS = 4_000_000; // ~3 MB image as a data URL
+
+// Rate limits for the public demo (override with env vars).
+const limiter = new RateLimiter({
+  perUser: Number(process.env.RATE_LIMIT_PER_USER) || 20,
+  windowMs: (Number(process.env.RATE_LIMIT_WINDOW_MIN) || 10) * 60_000,
+  maxConcurrent: Number(process.env.RATE_LIMIT_CONCURRENT) || 2,
+  globalPerHour: Number(process.env.RATE_LIMIT_GLOBAL_PER_HOUR) || 600,
+});
+setInterval(() => limiter.sweep(), 60_000).unref();
 
 function loadDotEnv(file) {
   if (!fs.existsSync(file)) return;
@@ -320,6 +330,14 @@ const server = http.createServer(async (req, res) => {
       const history = buildMessages(input);
       if (!history.length || history[history.length - 1].role !== 'user') return json(res, 400, { error: 'Send a message first.' });
       const messages = [{ role: 'system', content: systemPrompt(opts) }, ...history];
+
+      // Protect the shared API quota before calling the model.
+      const slot = limiter.take(clientKey(req));
+      if (!slot.ok) {
+        res.setHeader('Retry-After', String(slot.retryAfterSec));
+        return json(res, slot.status, { error: slot.message });
+      }
+      res.on('close', slot.release);
 
       // Stream newline-delimited JSON events to the browser:
       // {type:'text'|'tool'|'truncated'|'error'|'done', ...}
